@@ -35,6 +35,16 @@ class ProductsScreen extends StatelessWidget {
         centerTitle: true,
         actions: [
           IconButton(
+            icon: const Icon(Icons.add_circle_outline, color: colorGold),
+            tooltip: 'Nova ficha técnica',
+            onPressed: () {
+              final hasIngredients =
+                  context.read<IngredientProvider>().list.isNotEmpty;
+              Navigator.pushNamed(context,
+                  hasIngredients ? '/product-form' : '/ingredient-form');
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.qr_code_scanner, color: colorGold),
             tooltip: 'Identificar produto',
             onPressed: () =>
@@ -64,7 +74,7 @@ class ProductsScreen extends StatelessWidget {
           }
           final ingredients = ip.asMap;
           return ListView.builder(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 90),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
             itemCount: pp.list.length,
             itemBuilder: (context, i) {
               final product = pp.list[i];
@@ -74,16 +84,6 @@ class ProductsScreen extends StatelessWidget {
             },
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          final hasIngredients =
-              context.read<IngredientProvider>().list.isNotEmpty;
-          Navigator.pushNamed(context,
-              hasIngredients ? '/product-form' : '/ingredient-form');
-        },
-        backgroundColor: const Color(0xFF165A41),
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
