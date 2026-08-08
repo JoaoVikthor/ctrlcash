@@ -136,16 +136,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             style: TextStyle(
                 color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
-        actions: [
-          TextButton(
-            onPressed: _saving
-                ? null
-                : () => Navigator.pop(context),
-            child: const Text('Voltar',
-                style: TextStyle(color: _colorGold)),
-          ),
-          const SizedBox(width: 4),
-        ],
       ),
       body: Consumer<UserProvider>(
         builder: (context, prov, _) {
