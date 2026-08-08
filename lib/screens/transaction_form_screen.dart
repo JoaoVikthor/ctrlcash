@@ -121,7 +121,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     try {
       final raw = _amountController.text.trim().replaceAll(',', '.');
       final value = double.parse(raw);
-      final t = AppTransaction(
+      final t = AppTransaction.create(
         id: widget.editing?.id ?? '',
         type: _type,
         category: _category,
@@ -148,6 +148,14 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
               ? 'Transação registrada!'
               : 'Transação atualizada!'),
           backgroundColor: _colorGreenPrimary,
+        ),
+      );
+    } on ArgumentError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message.toString()),
+          backgroundColor: Colors.red,
         ),
       );
     } catch (e) {

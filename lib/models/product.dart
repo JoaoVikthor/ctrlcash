@@ -140,4 +140,15 @@ class Product {
         barcode: barcode ?? this.barcode,
         createdAt: createdAt,
       );
+
+  /// Custo fixo (mao de obra + embalagem), sem ingredientes.
+  double get fixedCost => laborCost + packagingCost;
+
+  /// Margem brutaSobreCustoFixo: (preco - custo fixo) / preco * 100.
+  /// Ignora ingredientes (precisa dos precos dos insumos para o calculo
+  /// completo — ver [ProductCalculator] em lib/utils/).
+  double get fixedMarginPercent {
+    if (salePrice <= 0) return 0;
+    return ((salePrice - fixedCost) / salePrice) * 100;
+  }
 }

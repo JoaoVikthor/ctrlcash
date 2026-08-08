@@ -86,6 +86,42 @@ class AppTransaction {
     this.budgetId,
   });
 
+  /// Factory validado (RN01): proibe valores <= 0 em movimentacoes.
+  /// Use para criar novas transacoes a partir da UI. Lanca [ArgumentError]
+  /// se [amount] for menor ou igual a zero. [fromMap] permanece resiliente
+  /// para leitura do Firestore (nao quebra com registros antigos/invalidos).
+  factory AppTransaction.create({
+    required String id,
+    required TransactionType type,
+    required String category,
+    required String description,
+    required double amount,
+    required DateTime date,
+    required PaymentMethod paymentMethod,
+    bool recurring = false,
+    String? notes,
+    String? receiptUrl,
+    String? budgetId,
+  }) {
+    if (amount <= 0) {
+      throw ArgumentError(
+          'O valor da transação deve ser maior que zero (RN01).');
+    }
+    return AppTransaction(
+      id: id,
+      type: type,
+      category: category,
+      description: description,
+      amount: amount,
+      date: date,
+      paymentMethod: paymentMethod,
+      recurring: recurring,
+      notes: notes,
+      receiptUrl: receiptUrl,
+      budgetId: budgetId,
+    );
+  }
+
   factory AppTransaction.fromMap(String id, Map<String, dynamic> m) {
     final rawDate = m['date'];
     DateTime date;

@@ -113,36 +113,32 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final credential =
-          await context.read<AuthService>().createUserWithEmailAndPassword(
-                email: _emailController.text.trim(),
-                password: _senhaController.text,
-              );
-      final String? uid = credential.user?.uid;
-      if (uid != null) {
-        final AppUser appUser = AppUser(
-          uid: uid,
-          nome: _nomeController.text.trim(),
-          email: _emailController.text.trim(),
-          empresa: _empresaController.text.trim().isEmpty
-              ? null
-              : _empresaController.text.trim(),
-          cnpj: _cnpjController.text.trim().isEmpty
-              ? null
-              : _cnpjController.text.trim(),
-          segmento: _segmentoController.text.trim().isEmpty
-              ? null
-              : _segmentoController.text.trim(),
-          telefone: _telefoneController.text.trim().isEmpty
-              ? null
-              : _telefoneController.text.trim(),
-          endereco: _enderecoController.text.trim().isEmpty
-              ? null
-              : _enderecoController.text.trim(),
-        );
-        if (!mounted) return;
-        await context.read<UserProvider>().saveUser(appUser);
-      }
+      final appUser = AppUser(
+        uid: '',
+        nome: _nomeController.text.trim(),
+        email: _emailController.text.trim(),
+        empresa: _empresaController.text.trim().isEmpty
+            ? null
+            : _empresaController.text.trim(),
+        cnpj: _cnpjController.text.trim().isEmpty
+            ? null
+            : _cnpjController.text.trim(),
+        segmento: _segmentoController.text.trim().isEmpty
+            ? null
+            : _segmentoController.text.trim(),
+        telefone: _telefoneController.text.trim().isEmpty
+            ? null
+            : _telefoneController.text.trim(),
+        endereco: _enderecoController.text.trim().isEmpty
+            ? null
+            : _enderecoController.text.trim(),
+      );
+      final user = await context.read<AuthService>().registerWithEmail(
+            userProfile: appUser,
+            password: _senhaController.text,
+          );
+      if (!mounted) return;
+      await context.read<UserProvider>().loadProfile(user.uid);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -151,6 +147,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
         ),
       );
       Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (r) => false);
+    } on AuthException catch (e) {
+      _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
       _mostrarErro(_mapFirebaseError(e));
     } catch (_) {

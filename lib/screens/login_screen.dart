@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -48,11 +47,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      await context.read<AuthService>().signInWithEmailAndPassword(
+      await context.read<AuthService>().signInWithEmail(
             email: email,
             password: password,
           );
       _navegarParaDashboard();
+    } on AuthException catch (e) {
+      _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
       _mostrarErro(_mapFirebaseError(e));
     } catch (_) {
@@ -65,18 +66,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loginComGoogle() async {
     setState(() => _isLoadingGoogle = true);
     try {
-      final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
-      if (googleUser == null) {
-        return;
+      final user = await context.read<AuthService>().signInWithGoogle();
+      if (user == null) {
+        return; // cancelado pelo usuario
       }
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
-      final AuthCredential credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      await FirebaseAuth.instance.signInWithCredential(credential);
       _navegarParaDashboard();
+    } on AuthException catch (e) {
+      _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
       _mostrarErro(_mapFirebaseError(e));
     } catch (_) {
