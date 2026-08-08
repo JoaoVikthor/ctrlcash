@@ -14,7 +14,7 @@ class SecurityScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _colorBackground,
-      appBar: const AppBrandedHeader(title: 'Segurança e Privacidade'),
+      appBar: const AppBrandedHeader(title: 'Segurança e Privacidade', showBack: true),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

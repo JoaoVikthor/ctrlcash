@@ -351,7 +351,7 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _colorBackground,
-      appBar: const AppBrandedHeader(title: 'Identificar Produto'),
+      appBar: const AppBrandedHeader(title: 'Identificar Produto', showBack: true),
       body: Stack(
         children: [
           MobileScanner(

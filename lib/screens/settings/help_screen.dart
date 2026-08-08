@@ -14,7 +14,7 @@ class HelpScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _colorBackground,
-      appBar: const AppBrandedHeader(title: 'Ajuda & Suporte'),
+      appBar: const AppBrandedHeader(title: 'Ajuda & Suporte', showBack: true),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

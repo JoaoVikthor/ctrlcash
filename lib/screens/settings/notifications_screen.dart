@@ -25,7 +25,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _colorBackground,
-      appBar: const AppBrandedHeader(title: 'Notificações'),
+      appBar: const AppBrandedHeader(title: 'Notificações', showBack: true),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
