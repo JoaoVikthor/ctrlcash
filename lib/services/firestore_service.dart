@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/app_user.dart';
 import '../models/transaction.dart' as tx;
 import '../models/budget.dart';
+import '../models/ingredient.dart';
+import '../models/product.dart';
 
 /// Servico de acesso ao Firestore do CashCtrl.
 ///
@@ -22,6 +24,12 @@ class FirestoreService {
 
   CollectionReference<Map<String, dynamic>> _budgetCol(String uid) =>
       _userDoc(uid).collection('budgets');
+
+  CollectionReference<Map<String, dynamic>> _ingredientCol(String uid) =>
+      _userDoc(uid).collection('ingredients');
+
+  CollectionReference<Map<String, dynamic>> _productCol(String uid) =>
+      _userDoc(uid).collection('products');
 
   // ---------------- PERFIL / NEGOCIO ----------------
 
@@ -80,5 +88,51 @@ class FirestoreService {
 
   Future<void> deleteBudget(String uid, String id) async {
     await _budgetCol(uid).doc(id).delete();
+  }
+
+  // ---------------- INSUMOS ----------------
+
+  Stream<List<Ingredient>> ingredientsStream(String uid) {
+    return _ingredientCol(uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((qs) =>
+            qs.docs.map((d) => Ingredient.fromMap(d.id, d.data())).toList());
+  }
+
+  Future<String> addIngredient(String uid, Ingredient ing) async {
+    final ref = await _ingredientCol(uid).add(ing.toMap());
+    return ref.id;
+  }
+
+  Future<void> updateIngredient(String uid, Ingredient ing) async {
+    await _ingredientCol(uid).doc(ing.id).set(ing.toMap());
+  }
+
+  Future<void> deleteIngredient(String uid, String id) async {
+    await _ingredientCol(uid).doc(id).delete();
+  }
+
+  // ---------------- PRODUTOS / FICHA TECNICA ----------------
+
+  Stream<List<Product>> productsStream(String uid) {
+    return _productCol(uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((qs) =>
+            qs.docs.map((d) => Product.fromMap(d.id, d.data())).toList());
+  }
+
+  Future<String> addProduct(String uid, Product p) async {
+    final ref = await _productCol(uid).add(p.toMap());
+    return ref.id;
+  }
+
+  Future<void> updateProduct(String uid, Product p) async {
+    await _productCol(uid).doc(p.id).set(p.toMap());
+  }
+
+  Future<void> deleteProduct(String uid, String id) async {
+    await _productCol(uid).doc(id).delete();
   }
 }

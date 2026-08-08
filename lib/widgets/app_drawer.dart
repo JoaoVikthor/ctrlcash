@@ -11,8 +11,10 @@ class AppDrawer extends StatelessWidget {
 
   static const List<_DrawerEntry> _items = [
     _DrawerEntry(icon: Icons.dashboard_outlined, label: 'Dashboard', route: '/dashboard'),
+    _DrawerEntry(icon: Icons.lunch_dining_outlined, label: 'Produtos', route: '/products'),
+    _DrawerEntry(icon: Icons.inventory_2_outlined, label: 'Insumos', route: '/ingredients'),
     _DrawerEntry(icon: Icons.account_balance_outlined, label: 'Orçamentos', route: '/budgets'),
-    _DrawerEntry(icon: Icons.receipt_long_outlined, label: 'Despesas', route: '/expenses'),
+    _DrawerEntry(icon: Icons.receipt_long_outlined, label: 'Transações', route: '/expenses'),
     _DrawerEntry(icon: Icons.bar_chart_outlined, label: 'Relatórios', route: '/reports'),
     _DrawerEntry(icon: Icons.settings_outlined, label: 'Configurações', route: '/settings'),
   ];
@@ -53,24 +55,17 @@ class AppDrawer extends StatelessWidget {
   Widget _buildHeader(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 12, 20),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _colorGreenPrimary,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Image.asset(
+child: Row(
+          children: [
+            Image.asset(
               'assets/images/logo.png',
-              width: 32,
-              height: 32,
+              width: 40,
+              height: 40,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) =>
-                  const Icon(Icons.ac_unit, color: Colors.white, size: 24),
+                  const Icon(Icons.ac_unit, color: Colors.white, size: 28),
             ),
-          ),
-          const SizedBox(width: 14),
+            const SizedBox(width: 14),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

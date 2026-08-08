@@ -39,6 +39,9 @@ dependencies:
   provider: ^6.1.2 # Gerenciamento de estado (ChangeNotifierProvider / StreamProvider)
   cloud_firestore: ^5.0.0 # Banco de dados NoSQL (Firestore) - CRUD isolado por UID (RN02)
   fl_chart: ^0.69.0 # Graficos (pizza, barras, linhas) para relatorios e dashboard
+  image_picker: ^1.1.2 # Captura/selecao de fotos (perfil do usuario, produto)
+  firebase_storage: ^12.0.0 # Upload de fotos (perfil, produto) no Storage
+  mobile_scanner: ^6.0.2 # Leitura de codigo de barras/QR via camera
 
 dev_dependencies:
   flutter_test:
