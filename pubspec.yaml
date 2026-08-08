@@ -106,7 +106,9 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: false
-  image_path: "assets/images/camaleao.png"
-  adaptive_icon_background: "#0D1E16"
-  adaptive_icon_foreground: "assets/images/camaleao.png"
+  image_path: "assets/images/ic_foreground.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#165A41"
+  adaptive_icon_foreground: "assets/images/ic_foreground.png"
+  adaptive_icon_monochrome: "assets/images/ic_foreground.png"
 
