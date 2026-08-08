@@ -40,6 +40,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final TextEditingController _telefoneController = TextEditingController();
   final TextEditingController _enderecoController = TextEditingController();
   String? _photoUrl;
+  File? _pendingPhotoFile;
   bool _uploadingPhoto = false;
 
   static const int _totalSteps = 2;
@@ -144,6 +145,31 @@ class _CadastroScreenState extends State<CadastroScreen> {
             userProfile: appUser,
             password: _senhaController.text,
           );
+      if (_pendingPhotoFile != null && mounted) {
+        try {
+          final photoUrl = await context.read<StorageService>().uploadFile(
+                uid: user.uid,
+                path:
+                    'business_photos/${DateTime.now().millisecondsSinceEpoch}.jpg',
+                file: _pendingPhotoFile!,
+              );
+          if (photoUrl != null) {
+            final updated = AppUser(
+              uid: user.uid,
+              nome: appUser.nome,
+              email: appUser.email,
+              empresa: appUser.empresa,
+              cnpj: appUser.cnpj,
+              segmento: appUser.segmento,
+              telefone: appUser.telefone,
+              endereco: appUser.endereco,
+              photoUrl: photoUrl,
+            );
+            if (!mounted) return;
+            await context.read<UserProvider>().saveUser(updated);
+          }
+        } catch (_) {}
+      }
       if (!mounted) return;
       await context.read<UserProvider>().loadProfile(user.uid);
       if (!mounted) return;
@@ -372,72 +398,46 @@ class _CadastroScreenState extends State<CadastroScreen> {
           border: Border.all(
               color: Colors.white.withValues(alpha: 0.08), width: 1),
         ),
-        child: _uploadingPhoto
-            ? const Center(
-                child: SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                      color: _colorGold, strokeWidth: 2),
-                ),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_photoUrl != null) ...[
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.network(_photoUrl!,
-                          height: 72, width: 72, fit: BoxFit.cover),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Foto adicionada',
-                        style: TextStyle(
-                            color: _colorGreenPrimary,
-                            fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    const Text('Toque para trocar',
-                        style:
-                            TextStyle(color: _colorGold, fontSize: 12)),
-                  ] else ...[
-                    const Icon(Icons.add_a_photo_outlined, color: _colorGold),
-                    const SizedBox(width: 12),
-                    const Text(
-                      'Adicionar foto da empresa',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ],
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_pendingPhotoFile != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.file(_pendingPhotoFile!,
+                    height: 72, width: 72, fit: BoxFit.cover),
               ),
+              const SizedBox(height: 8),
+              const Text('Foto capturada',
+                  style: TextStyle(
+                      color: _colorGreenPrimary,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              const Text('Toque para trocar',
+                  style: TextStyle(color: _colorGold, fontSize: 12)),
+            ] else ...[
+              const Icon(Icons.add_a_photo_outlined, color: _colorGold),
+              const SizedBox(height: 8),
+              const Text(
+                'Adicionar foto da empresa',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
   Future<void> _pickPhoto() async {
-    final messenger = ScaffoldMessenger.of(context);
-    final storage = context.read<StorageService>();
     final picker = ImagePicker();
     final xFile = await picker.pickImage(source: ImageSource.camera);
     if (xFile == null) return;
-    setState(() => _uploadingPhoto = true);
-    final userUid = FirebaseAuth.instance.currentUser?.uid;
-    final draftUid =
-        userUid ?? 'draft_${DateTime.now().millisecondsSinceEpoch}';
-    try {
-      final url = await storage.uploadFile(
-        uid: draftUid,
-        path: 'business_photos/${DateTime.now().millisecondsSinceEpoch}.jpg',
-        file: File(xFile.path),
-      );
-      if (url == null) throw Exception('Falha no upload da foto.');
-      setState(() => _photoUrl = url);
-    } catch (e) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Erro: $e'), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
-    }
+    setState(() {
+      _pendingPhotoFile = File(xFile.path);
+      _uploadingPhoto = false;
+    });
   }
 
   Widget _sectionTitle(String title, String subtitle) {

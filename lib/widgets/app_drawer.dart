@@ -58,12 +58,12 @@ class AppDrawer extends StatelessWidget {
 child: Row(
           children: [
             Image.asset(
-              'assets/images/logo.png',
+              'assets/images/logo_drawer.png',
               width: 40,
               height: 40,
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) =>
-                  const Icon(Icons.ac_unit, color: Colors.white, size: 28),
+                  const Icon(Icons.ac_unit, color: _colorGold, size: 28),
             ),
             const SizedBox(width: 14),
           const Expanded(
@@ -80,7 +80,7 @@ child: Row(
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Controle financeiro',
+                  'Adaptar. Resolver. Desenvolver.',
                   style: TextStyle(color: _colorGold, fontSize: 12),
                 ),
               ],
