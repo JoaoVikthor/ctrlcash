@@ -10,6 +10,7 @@ import '../providers/user_provider.dart';
 import '../services/storage_service.dart';
 import '../utils/format.dart';
 import '../utils/product_calculator.dart';
+import '../utils/unit_converter.dart';
 import 'dart:io';
 
 class ProductFormScreen extends StatefulWidget {
@@ -45,6 +46,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   bool _saving = false;
   String? _photoUrl;
   bool _uploadingPhoto = false;
+  final List<String> _recipeInputUnits = [];
 
   @override
   void initState() {
@@ -92,6 +94,32 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   double _parse(TextEditingController c) =>
       double.tryParse(c.text.trim().replaceAll(',', '.')) ?? 0;
 
+  double _convertedQuantity(int index, Map<String, Ingredient> ingredients) {
+    final item = _recipe[index];
+    final ing = ingredients[item.ingredientId];
+    final raw = _parse(_qtyControllers[index]);
+    final result = UnitConverter.convertToIngredientUnit(
+      raw,
+      _recipeInputUnits[index],
+      ing?.unit.label ?? _recipeInputUnits[index],
+    );
+    return result.value;
+  }
+
+  bool _hasConversionWarning(int index, Map<String, Ingredient> ingredients) {
+    final item = _recipe[index];
+    final ing = ingredients[item.ingredientId];
+    if (ing == null) return false;
+    final raw = _parse(_qtyControllers[index]);
+    if (raw <= 0) return false;
+    final result = UnitConverter.convertToIngredientUnit(
+      raw,
+      _recipeInputUnits[index],
+      ing.unit.label,
+    );
+    return !result.converted && result.unit != ing.unit.label;
+  }
+
   void _toast(String msg, {Color color = Colors.red}) {
     ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: color));
@@ -108,6 +136,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           ingredientName: ing.name,
           quantity: 0));
       _qtyControllers.add(TextEditingController(text: '0'));
+      _recipeInputUnits.add(ing.unit.label);
     });
   }
 
@@ -115,6 +144,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     setState(() {
       _qtyControllers[index].dispose();
       _qtyControllers.removeAt(index);
+      _recipeInputUnits.removeAt(index);
       _recipe.removeAt(index);
     });
   }
@@ -140,9 +170,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     if (!_validate()) return;
     setState(() => _saving = true);
     try {
+      final ingredients = context.read<IngredientProvider>().asMap;
       final recipe = <RecipeItem>[];
       for (var i = 0; i < _recipe.length; i++) {
-        final qty = _parse(_qtyControllers[i]);
+        final qty = _convertedQuantity(i, ingredients);
         if (qty <= 0) {
           _toast('A quantidade de "${_recipe[i].ingredientName}" deve ser > 0.');
           setState(() => _saving = false);
@@ -190,7 +221,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   TicketResult _livePreview(Map<String, Ingredient> ingredients) {
     final recipe = <RecipeItem>[];
     for (var i = 0; i < _recipe.length; i++) {
-      recipe.add(_recipe[i].copyWith(quantity: _parse(_qtyControllers[i])));
+      recipe.add(_recipe[i].copyWith(
+          quantity: _convertedQuantity(i, ingredients)));
     }
     final preview = Product(
       id: widget.editing?.id ?? '__preview__',
@@ -316,7 +348,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 style: TextStyle(color: Colors.white38, fontSize: 12)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.pushReplacementNamed(context, '/ingredients'),
               style: ElevatedButton.styleFrom(
                   backgroundColor: _colorGreenPrimary),
               child: const Text('Ir para Insumos',
@@ -498,15 +530,24 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget _buildRecipeRow(int index, Map<String, Ingredient> ingredients) {
     final item = _recipe[index];
     final ing = ingredients[item.ingredientId];
-    final qty = _parse(_qtyControllers[index]);
-    final lineCost =
-        ing != null ? ing.pricePerUnit * qty : 0.0;
+    if (_recipeInputUnits.length <= index) {
+      _recipeInputUnits.add(ing?.unit.label ?? 'un');
+    } else if (ing != null && _recipeInputUnits[index] == 'un') {
+      _recipeInputUnits[index] = ing.unit.label;
+    }
+    final qty = _convertedQuantity(index, ingredients);
+    final lineCost = ing != null ? ing.pricePerUnit * qty : 0.0;
+    final compatible = ing != null
+        ? UnitConverter.compatibleUnits(ing.unit.label)
+        : const <String>['un'];
+    final showSelector = compatible.length > 1;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
           color: _colorCard, borderRadius: BorderRadius.circular(10)),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             flex: 3,
@@ -530,36 +571,57 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          SizedBox(
-            width: 72,
-            child: TextField(
-              controller: _qtyControllers[index],
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: _colorBackground,
-                suffixText: ing?.unit.label ?? '',
-                suffixStyle: const TextStyle(color: _colorGold, fontSize: 11),
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-                enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.08))),
-                focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide:
-                        const BorderSide(color: _colorGold, width: 1.2)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: showSelector ? 62 : 72,
+                    child: TextField(
+                      controller: _qtyControllers[index],
+                      keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true),
+                      textAlign: TextAlign.center,
+                      style:
+                          const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: _colorBackground,
+                        suffixText: showSelector ? null : ing?.unit.label,
+                        suffixStyle:
+                            const TextStyle(color: _colorGold, fontSize: 11),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(
+                                color:
+                                    Colors.white.withValues(alpha: 0.08))),
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: const BorderSide(
+                                color: _colorGold, width: 1.2)),
+                      ),
+                    ),
+                  ),
+                  if (showSelector) ...[
+                    const SizedBox(width: 4),
+                    _buildUnitSelector(index, compatible),
+                  ],
+                ],
               ),
-            ),
+              if (_hasConversionWarning(index, ingredients)) ...[
+                const SizedBox(height: 4),
+                const Text('conversão não aplicada',
+                    style: TextStyle(color: Colors.orange, fontSize: 10)),
+              ],
+            ],
           ),
           const SizedBox(width: 8),
           SizedBox(
-            width: 76,
+            width: 70,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -578,6 +640,38 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             onPressed: () => _removeAt(index),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildUnitSelector(int index, List<String> units) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        color: _colorBackground,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _recipeInputUnits[index],
+          dropdownColor: _colorCard,
+          icon: const Icon(Icons.arrow_drop_down, color: _colorGold, size: 18),
+          style: const TextStyle(color: Colors.white, fontSize: 12),
+          items: units
+              .map((u) => DropdownMenuItem(
+                    value: u,
+                    child: Text(u,
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 12)),
+                  ))
+              .toList(),
+          onChanged: (v) {
+            if (v != null) {
+              setState(() => _recipeInputUnits[index] = v);
+            }
+          },
+        ),
       ),
     );
   }

@@ -28,6 +28,11 @@ import 'screens/products_screen.dart';
 import 'screens/product_form_screen.dart';
 import 'screens/product_detail_screen.dart';
 import 'screens/product_scanner_screen.dart';
+import 'screens/ingredient_offers_screen.dart';
+import 'screens/offer_form_screen.dart';
+import 'screens/audit_logs_screen.dart';
+import 'screens/compare_prices_screen.dart';
+import 'models/ingredient_offer.dart';
 import 'screens/settings/edit_profile_screen.dart';
 import 'screens/settings/notifications_screen.dart';
 import 'screens/settings/security_screen.dart';
@@ -134,6 +139,18 @@ class CashCtrlApp extends StatelessWidget {
           '/settings/notifications': (context) => const NotificationsScreen(),
           '/settings/security': (context) => const SecurityScreen(),
           '/settings/help': (context) => const HelpScreen(),
+          '/ingredient-offers': (context) => IngredientOffersScreen(
+              ingredientId: ModalRoute.of(context)?.settings.arguments as String),
+          '/offer-form': (context) {
+            final map = ModalRoute.of(context)?.settings.arguments
+                as Map<String, dynamic>?;
+            return OfferFormScreen(
+              ingredientId: (map?['ingredientId'] ?? '') as String,
+              offer: map?['offer'] as IngredientOffer?,
+            );
+          },
+          '/audit-logs': (context) => const AuditLogsScreen(),
+          '/compare-prices': (context) => const ComparePricesScreen(),
         },
         home: const AuthGate(),
       ),

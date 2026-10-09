@@ -9,6 +9,5 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CadastroScreen()));
 
     expect(find.text('Dados Pessoais'), findsOneWidget);
-    expect(find.text('Dados Pessoais'), findsOneWidget);
   });
 }

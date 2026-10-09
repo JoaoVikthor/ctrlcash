@@ -6,6 +6,8 @@ import '../providers/ingredient_provider.dart';
 import '../providers/product_provider.dart';
 import '../utils/format.dart';
 import '../utils/product_calculator.dart';
+import '../utils/offer_comparator.dart';
+import '../widgets/economy_summary_card.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   const ProductDetailScreen({super.key});
@@ -126,6 +128,22 @@ class ProductDetailScreen extends StatelessWidget {
           ],
           const SizedBox(height: 24),
           _buildVerdictCard(t),
+          const SizedBox(height: 16),
+          EconomySummaryCard(
+            scenario: OfferComparator.bestSupplierScenario(t),
+            ticket: t,
+            onViewOffers: (ingredientId) {
+              if (ingredientId.isEmpty) {
+                Navigator.pushNamed(context, '/ingredients');
+              } else {
+                Navigator.pushNamed(
+                  context,
+                  '/ingredient-offers',
+                  arguments: ingredientId,
+                );
+              }
+            },
+          ),
           const SizedBox(height: 24),
           _buildSectionTitle('Receita por ingrediente', Icons.restaurant_menu),
           const SizedBox(height: 12),

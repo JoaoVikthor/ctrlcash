@@ -6,6 +6,9 @@ import '../providers/ingredient_provider.dart';
 import '../utils/format.dart';
 import '../widgets/app_branded_header.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/offer_count_badge.dart';
+import '../widgets/active_offer_marker.dart';
+import '../widgets/best_price_chip.dart';
 
 class IngredientsScreen extends StatelessWidget {
   const IngredientsScreen({super.key});
@@ -31,9 +34,21 @@ class IngredientsScreen extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Erro: ${prov.error}',
-                    style: const TextStyle(color: Colors.white54),
-                    textAlign: TextAlign.center),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off,
+                        color: colorTextSec, size: 48),
+                    const SizedBox(height: 8),
+                    const Text('Não foi possível carregar os insumos.',
+                        style: TextStyle(color: Colors.white54),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 4),
+                    const Text('Verifique sua conexão e tente novamente.',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                        textAlign: TextAlign.center),
+                  ],
+                ),
               ),
             );
           }
@@ -92,6 +107,8 @@ class IngredientsScreen extends StatelessWidget {
   }
 
   Widget _buildIngredientCard(BuildContext context, Ingredient ing) {
+    final activeIsBest =
+        ing.activeOffer != null && ing.activeOffer?.id == ing.bestActiveOffer?.id;
     return Dismissible(
       key: ValueKey(ing.id),
       direction: DismissDirection.endToStart,
@@ -105,48 +122,72 @@ class IngredientsScreen extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.red),
       ),
       confirmDismiss: (_) => _confirmDelete(context, ing),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-            color: colorCard, borderRadius: BorderRadius.circular(12)),
-        child: Row(
-          children: [
-            CircleAvatar(
-              backgroundColor: colorBackground,
-              child: const Icon(Icons.science_outlined,
-                  color: colorGold, size: 20),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: GestureDetector(
+        onTap: () => Navigator.pushNamed(context, '/ingredient-form',
+            arguments: ing),
+        onLongPress: () => Navigator.pushNamed(context, '/ingredient-offers',
+            arguments: ing.id),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: colorCard, borderRadius: BorderRadius.circular(12)),
+          child: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: colorBackground,
+                child: const Icon(Icons.science_outlined,
+                    color: colorGold, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(ing.name,
+                        style: const TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 4),
+                    OfferCountBadge(count: ing.offersCount),
+                    const SizedBox(height: 4),
+                    Text(
+                        '${formatCurrencyAbs(ing.purchasePrice)} / ${ing.packageQuantity.toStringAsFixed(ing.packageQuantity % 1 == 0 ? 0 : 2)} ${ing.unit.label}',
+                        style: const TextStyle(color: colorTextSec, fontSize: 12)),
+                  ],
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(ing.name,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  const SizedBox(height: 4),
+                  const Text('Preço por unidade',
+                      style: TextStyle(color: colorTextSec, fontSize: 10)),
+                  const SizedBox(height: 2),
                   Text(
-                      '${formatCurrencyAbs(ing.purchasePrice)} / ${ing.packageQuantity.toStringAsFixed(ing.packageQuantity % 1 == 0 ? 0 : 2)} ${ing.unit.label}',
-                      style: const TextStyle(color: colorTextSec, fontSize: 12)),
+                      '${formatCurrencyAbs(ing.pricePerUnit)}/${ing.unit.label}',
+                      style: const TextStyle(
+                          color: colorGold, fontWeight: FontWeight.bold)),
+                  if (ing.offers.length >= 2) ...[
+                    const SizedBox(height: 6),
+                    const ActiveOfferMarker(),
+                    if (!activeIsBest) ...[
+                      const SizedBox(height: 4),
+                      const BestPriceChip(),
+                    ],
+                  ],
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text('Preço por unidade',
-                    style: TextStyle(color: colorTextSec, fontSize: 10)),
-                const SizedBox(height: 2),
-                Text(
-                    '${formatCurrencyAbs(ing.pricePerUnit)}/${ing.unit.label}',
-                    style: const TextStyle(
-                        color: colorGold, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ],
+              const SizedBox(width: 10),
+              IconButton(
+                icon: const Icon(Icons.storefront_outlined,
+                    color: colorGold, size: 22),
+                tooltip: 'Ver ofertas',
+                onPressed: () => Navigator.pushNamed(context, '/ingredient-offers',
+                    arguments: ing.id),
+              ),
+            ],
+          ),
         ),
       ),
     );

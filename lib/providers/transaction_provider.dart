@@ -72,6 +72,7 @@ class TransactionProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
+        debugPrint('[TransactionProvider] stream error: $e');
         _error = e.toString();
         _loading = false;
         notifyListeners();

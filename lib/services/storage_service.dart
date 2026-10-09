@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart';
 
 /// Servico de upload de imagens para o Firebase Storage.
 ///
@@ -24,7 +23,6 @@ class StorageService {
       final task = await ref.putFile(file);
       return await task.ref.getDownloadURL();
     } catch (e) {
-      debugPrint('Storage upload error: $e');
       return null;
     }
   }

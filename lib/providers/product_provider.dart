@@ -62,6 +62,7 @@ class ProductProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
+        debugPrint('[ProductProvider] stream error: $e');
         _error = e.toString();
         _loading = false;
         notifyListeners();

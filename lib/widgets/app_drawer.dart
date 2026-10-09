@@ -13,6 +13,8 @@ class AppDrawer extends StatelessWidget {
     _DrawerEntry(icon: Icons.dashboard_outlined, label: 'Dashboard', route: '/dashboard'),
     _DrawerEntry(icon: Icons.lunch_dining_outlined, label: 'Produtos', route: '/products'),
     _DrawerEntry(icon: Icons.inventory_2_outlined, label: 'Insumos', route: '/ingredients'),
+    _DrawerEntry(icon: Icons.compare_arrows_outlined, label: 'Comparar preços', route: '/compare-prices'),
+    _DrawerEntry(icon: Icons.history_outlined, label: 'Histórico de preços', route: '/audit-logs'),
     _DrawerEntry(icon: Icons.account_balance_outlined, label: 'Orçamentos', route: '/budgets'),
     _DrawerEntry(icon: Icons.receipt_long_outlined, label: 'Transações', route: '/expenses'),
     _DrawerEntry(icon: Icons.bar_chart_outlined, label: 'Relatórios', route: '/reports'),

@@ -80,7 +80,7 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
                   const Icon(Icons.verified, color: Colors.green, size: 28),
                   const SizedBox(width: 10),
                   const Expanded(
-                    child: Text('Produto reconhecido!',
+                    child: Text('Produto reconhecido',
                         style: TextStyle(
                             color: Colors.green,
                             fontSize: 18,
@@ -313,7 +313,7 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
                     height: 200, fit: BoxFit.cover),
               ),
               const SizedBox(height: 16),
-              const Text('Foto capturada!',
+              const Text('Foto salva',
                   style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -321,7 +321,7 @@ class _ProductScannerScreenState extends State<ProductScannerScreen> {
                   textAlign: TextAlign.center),
               const SizedBox(height: 8),
               const Text(
-                  'Para reconhecimento automático, associe esta foto a um produto cadastrando o código de barras.',
+                  'Cadastre a ficha técnica deste produto para que ele apareça no seu catálogo.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70, fontSize: 13)),
               const SizedBox(height: 16),

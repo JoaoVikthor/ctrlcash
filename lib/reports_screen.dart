@@ -40,6 +40,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
             return const Center(
                 child: CircularProgressIndicator(color: colorGold));
           }
+          if (tx.error != null) {
+            return _buildError();
+          }
           if (tx.transactions.isEmpty) {
             return _buildEmpty();
           }
@@ -101,6 +104,26 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 style: TextStyle(color: Colors.white54)),
             const SizedBox(height: 4),
             const Text('Registre transações para ver análises.',
+                style: TextStyle(color: Colors.white38, fontSize: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.error_outline, size: 56, color: Colors.red),
+            SizedBox(height: 12),
+            Text('Não foi possível carregar os relatórios.',
+                style: TextStyle(color: Colors.white54)),
+            SizedBox(height: 4),
+            Text('Verifique sua conexão e tente novamente.',
                 style: TextStyle(color: Colors.white38, fontSize: 12)),
           ],
         ),

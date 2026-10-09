@@ -63,9 +63,21 @@ class ProductsScreen extends StatelessWidget {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text('Erro: ${pp.error}',
-                    style: const TextStyle(color: Colors.white54),
-                    textAlign: TextAlign.center),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off,
+                        color: colorTextSec, size: 48),
+                    const SizedBox(height: 8),
+                    const Text('Não foi possível carregar os produtos.',
+                        style: TextStyle(color: Colors.white54),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 4),
+                    const Text('Verifique sua conexão e tente novamente.',
+                        style: TextStyle(color: Colors.white38, fontSize: 12),
+                        textAlign: TextAlign.center),
+                  ],
+                ),
               ),
             );
           }

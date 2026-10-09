@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../models/ingredient.dart';
 import '../providers/ingredient_provider.dart';
 import '../utils/format.dart';
+import '../widgets/section_header.dart';
+import '../widgets/active_offer_marker.dart';
+import '../widgets/best_price_chip.dart';
 
 class IngredientFormScreen extends StatefulWidget {
   final Ingredient? editing;
@@ -19,6 +22,7 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
   static const Color _colorGreenPrimary = Color(0xFF165A41);
   static const Color _colorGold = Color(0xFFB89775);
   static const Color _colorCard = Color(0xFF142A20);
+  static const Color _colorTextSec = Color(0xFF7A8B83);
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
@@ -78,16 +82,25 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
     if (!_validate()) return;
     setState(() => _saving = true);
     try {
-      final ing = Ingredient(
-        id: widget.editing?.id ?? '',
-        name: _nameController.text.trim(),
-        unit: _unit,
-        purchasePrice:
-            double.parse(_priceController.text.trim().replaceAll(',', '.')),
-        packageQuantity:
-            double.parse(_qtyController.text.trim().replaceAll(',', '.')),
-        createdAt: widget.editing?.createdAt ?? DateTime.now(),
-      );
+      final name = _nameController.text.trim();
+      final purchasePrice =
+          double.parse(_priceController.text.trim().replaceAll(',', '.'));
+      final packageQuantity =
+          double.parse(_qtyController.text.trim().replaceAll(',', '.'));
+      final ing = widget.editing?.copyWith(
+            name: name,
+            unit: _unit,
+            purchasePrice: purchasePrice,
+            packageQuantity: packageQuantity,
+          ) ??
+          Ingredient(
+            id: '',
+            name: name,
+            unit: _unit,
+            purchasePrice: purchasePrice,
+            packageQuantity: packageQuantity,
+            createdAt: DateTime.now(),
+          );
       final prov2 = context.read<IngredientProvider>();
       if (widget.editing == null) {
         await prov2.addIngredient(ing);
@@ -164,6 +177,15 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
             ),
             const SizedBox(height: 16),
             _buildPreview(),
+            const SizedBox(height: 24),
+            _buildDefaultSupplierSection(context),
+            const SizedBox(height: 24),
+            _buildOffersSection(context),
+            const SizedBox(height: 16),
+            const Text(
+              'Você escolhe qual oferta entra no ticket. O app não troca sozinho.',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
           ],
         ),
       ),
@@ -230,6 +252,7 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
     final qty =
         double.tryParse(_qtyController.text.trim().replaceAll(',', '.')) ?? 0;
     final perUnit = qty > 0 ? price / qty : 0.0;
+    final active = widget.editing?.activeOffer;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -254,8 +277,283 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                   color: Colors.white,
                   fontSize: 22,
                   fontWeight: FontWeight.bold)),
+          if (active != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Com oferta ativa, o ticket usa ${formatCurrencyAbs(active.pricePerUnit)}/${_unit.label} (${active.supplier}).',
+              style: const TextStyle(color: _colorGold, fontSize: 12),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildDefaultSupplierSection(BuildContext context) {
+    final ing = widget.editing;
+    final active = ing?.activeOffer;
+    final bool isNew = ing == null;
+
+    if (active != null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+              icon: Icons.storefront_outlined, title: 'Fornecedor padrão'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: _colorCard,
+                borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Ativa agora',
+                    style: TextStyle(color: _colorGold, fontSize: 12)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(active.supplier,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                    ),
+                    const ActiveOfferMarker(),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${formatCurrencyAbs(active.packagePrice)} · ${active.packageQuantity.toStringAsFixed(active.packageQuantity % 1 == 0 ? 0 : 2)} ${ing!.unit.label} · ${formatCurrencyAbs(active.pricePerUnit)}/${ing.unit.label}',
+                  style: const TextStyle(
+                      color: _colorGold,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        '/offer-form',
+                        arguments: {
+                          'ingredientId': ing.id,
+                          'offer': active,
+                        },
+                      ),
+                      style: TextButton.styleFrom(
+                          foregroundColor: _colorGold,
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 36),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                      child: const Text('Editar oferta'),
+                    ),
+                    const SizedBox(width: 16),
+                    TextButton(
+                      onPressed: () => Navigator.pushNamed(
+                        context,
+                        '/ingredient-offers',
+                        arguments: ing.id,
+                      ),
+                      style: TextButton.styleFrom(
+                          foregroundColor: _colorGold,
+                          padding: EdgeInsets.zero,
+                          minimumSize: const Size(0, 36),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                      child: Text('Ver todas (${ing.offersCount})'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (ing != null && ing.offers.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionHeader(
+              icon: Icons.storefront_outlined, title: 'Fornecedor padrão'),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: Colors.orange.withValues(alpha: 0.4), width: 1)),
+            child: const Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.orange, size: 18),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Nenhuma oferta ativa. O ticket usa o preço base deste insumo.',
+                    style: TextStyle(color: Colors.orange, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+            icon: Icons.storefront_outlined, title: 'Fornecedor padrão'),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: _colorCard,
+              borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            children: [
+              const Icon(Icons.storefront_outlined,
+                  color: _colorTextSec, size: 28),
+              const SizedBox(height: 8),
+              Text(
+                isNew
+                    ? 'Salve o insumo antes de adicionar ofertas.'
+                    : 'Nenhuma oferta cadastrada.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: _colorTextSec, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: isNew
+                    ? null
+                    : () => Navigator.pushNamed(
+                          context,
+                          '/offer-form',
+                          arguments: {'ingredientId': ing.id},
+                        ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _colorGreenPrimary,
+                  side: const BorderSide(color: _colorGreenPrimary),
+                  disabledForegroundColor: Colors.white38,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('Adicionar primeira oferta'),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOffersSection(BuildContext context) {
+    final ing = widget.editing;
+    if (ing == null) return const SizedBox.shrink();
+    final active = ing.activeOffer;
+    final best = ing.bestActiveOffer;
+    final previewOffers = ing.offers.take(3).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          icon: Icons.storefront_outlined,
+          title: 'Ofertas',
+          trailing: Text(
+            '${ing.offersCount}/15',
+            style: const TextStyle(color: _colorTextSec, fontSize: 12),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (previewOffers.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: _colorCard,
+                borderRadius: BorderRadius.circular(12)),
+            child: const Text(
+              'Nenhuma oferta ainda.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _colorTextSec, fontSize: 12),
+            ),
+          )
+        else
+          Column(
+            children: previewOffers.map((o) {
+              final isActive = active?.id == o.id;
+              final isBest = best?.id == o.id;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: _colorCard,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(o.supplier,
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${formatCurrencyAbs(o.pricePerUnit)}/${ing.unit.label}',
+                            style: const TextStyle(
+                                color: _colorGold,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isActive) ...[
+                      const ActiveOfferMarker(),
+                      const SizedBox(width: 6),
+                    ],
+                    if (isBest && active?.id != best?.id) ...[
+                      const BestPriceChip(),
+                    ],
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        if (ing.offersCount > 3) ...[
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: () => Navigator.pushNamed(context, '/ingredient-offers',
+                arguments: ing.id),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text(
+                  'Ver todas as ${ing.offersCount} ofertas',
+                  style: const TextStyle(
+                      color: _colorGold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold),
+                ),
+                const Icon(Icons.arrow_forward,
+                    color: _colorGold, size: 14),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 

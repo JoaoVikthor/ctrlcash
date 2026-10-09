@@ -77,8 +77,12 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 children: [
                   const Icon(Icons.cloud_off, color: colorTextSec, size: 48),
                   const SizedBox(height: 8),
-                  Text('Erro: ${tx.error}',
-                      style: const TextStyle(color: Colors.white54),
+                  const Text('Não foi possível carregar as transações.',
+                      style: TextStyle(color: Colors.white54),
+                      textAlign: TextAlign.center),
+                  const SizedBox(height: 4),
+                  const Text('Verifique sua conexão e tente novamente.',
+                      style: TextStyle(color: Colors.white38, fontSize: 12),
                       textAlign: TextAlign.center),
                 ],
               ),
@@ -345,14 +349,30 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     ],
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                Row(
                   children: [
                     Text(
                         '${isIncome ? '+' : '-'}${formatCurrencyAbs(t.amount)}',
                         style: TextStyle(
                             color: isIncome ? Colors.green : Colors.red,
                             fontWeight: FontWeight.bold)),
+                    PopupMenuButton<String>(
+                      color: colorCard,
+                      icon: const Icon(Icons.more_vert,
+                          color: Colors.white54, size: 18),
+                      onSelected: (v) {
+                        if (v == 'edit') {
+                          Navigator.pushNamed(context, '/transaction-form',
+                              arguments: t);
+                        }
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Editar',
+                                style: TextStyle(color: Colors.white))),
+                      ],
+                    ),
                   ],
                 ),
               ],

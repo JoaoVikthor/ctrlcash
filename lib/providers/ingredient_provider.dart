@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/ingredient.dart';
+import '../models/ingredient_offer.dart';
+import '../models/price_audit_log.dart';
 import '../services/firestore_service.dart';
 import 'user_provider.dart';
 
@@ -66,6 +68,7 @@ class IngredientProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
+        debugPrint('[IngredientProvider] stream error: $e');
         _error = e.toString();
         _loading = false;
         notifyListeners();
@@ -86,6 +89,32 @@ class IngredientProvider extends ChangeNotifier {
   Future<void> deleteIngredient(String id) async {
     if (_uid == null) throw StateError('Usuário não autenticado.');
     await _firestore.deleteIngredient(_uid!, id);
+  }
+
+  Future<String> upsertOffer(String ingredientId, IngredientOffer offer) async {
+    if (_uid == null) throw StateError('Usuário não autenticado.');
+    return _firestore.upsertOffer(_uid!, ingredientId, offer);
+  }
+
+  Future<void> setActiveOffer(String ingredientId, String offerId) async {
+    if (_uid == null) throw StateError('Usuário não autenticado.');
+    await _firestore.setActiveOffer(_uid!, ingredientId, offerId);
+  }
+
+  Future<void> toggleOfferActive(
+      String ingredientId, String offerId, bool isActive) async {
+    if (_uid == null) throw StateError('Usuário não autenticado.');
+    await _firestore.toggleOfferActive(_uid!, ingredientId, offerId, isActive);
+  }
+
+  Future<void> deleteOffer(String ingredientId, String offerId) async {
+    if (_uid == null) throw StateError('Usuário não autenticado.');
+    await _firestore.deleteOffer(_uid!, ingredientId, offerId);
+  }
+
+  Stream<List<PriceAuditLog>> get auditLogs {
+    if (_uid == null) return Stream.empty();
+    return _firestore.priceAuditLogsStream(_uid!);
   }
 
   void reload() => _connect();

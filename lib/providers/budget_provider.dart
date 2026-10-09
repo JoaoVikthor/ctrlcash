@@ -62,6 +62,7 @@ class BudgetProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
+        debugPrint('[BudgetProvider] stream error: $e');
         _error = e.toString();
         _loading = false;
         notifyListeners();

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
@@ -35,6 +36,16 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool get _anyLoading =>
       _isLoading || _isLoadingGoogle || _isLoadingFacebook;
+
+  bool get _socialEnabled {
+    final hasFacebook =
+        (dotenv.env['FACEBOOK_APP_ID']?.isNotEmpty == true) &&
+            (dotenv.env['FACEBOOK_CLIENT_TOKEN']?.isNotEmpty == true);
+    final hasGoogle =
+        (dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID']?.isNotEmpty == true) ||
+            (dotenv.env['FIREBASE_ANDROID_API_KEY']?.isNotEmpty == true);
+    return hasFacebook && hasGoogle;
+  }
 
   Future<void> _login() async {
     final String email = _emailController.text.trim();
@@ -157,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const SizedBox(height: 30),
               Image.asset(
-                'assets/images/logo_dourado.png',
+                'assets/images/logo_camaleao_dourado.png',
                 height: 90,
                 fit: BoxFit.contain,
               ),
@@ -220,35 +231,37 @@ class _LoginScreenState extends State<LoginScreen> {
                 label: 'Entrar',
               ),
               const SizedBox(height: 28),
-              _buildDivider(),
-              const SizedBox(height: 22),
-              const Text(
-                'Ou conecte usando',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 13),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _socialButton(
-                    icon: FontAwesomeIcons.google,
-                    color: const Color(0xFFDB4437),
-                    isLoading: _isLoadingGoogle,
-                    onTap: _anyLoading ? () {} : _loginComGoogle,
-                    tooltip: 'Entrar com Google',
-                  ),
-                  const SizedBox(width: 24),
-                  _socialButton(
-                    icon: FontAwesomeIcons.facebookF,
-                    color: const Color(0xFF1877F2),
-                    isLoading: _isLoadingFacebook,
-                    onTap: _anyLoading ? () {} : _loginComFacebook,
-                    tooltip: 'Entrar com Facebook',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 32),
+              if (_socialEnabled) ...[
+                _buildDivider(),
+                const SizedBox(height: 22),
+                const Text(
+                  'Ou conecte usando',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _socialButton(
+                      icon: FontAwesomeIcons.google,
+                      color: const Color(0xFFDB4437),
+                      isLoading: _isLoadingGoogle,
+                      onTap: _anyLoading ? () {} : _loginComGoogle,
+                      tooltip: 'Entrar com Google',
+                    ),
+                    const SizedBox(width: 24),
+                    _socialButton(
+                      icon: FontAwesomeIcons.facebookF,
+                      color: const Color(0xFF1877F2),
+                      isLoading: _isLoadingFacebook,
+                      onTap: _anyLoading ? () {} : _loginComFacebook,
+                      tooltip: 'Entrar com Facebook',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+              ],
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -364,7 +377,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _socialButton({
-    required IconData icon,
+    required FaIconData icon,
     required Color color,
     required bool isLoading,
     required VoidCallback onTap,

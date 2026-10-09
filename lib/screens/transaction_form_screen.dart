@@ -8,12 +8,10 @@ import '../utils/format.dart';
 
 class TransactionFormScreen extends StatefulWidget {
   final AppTransaction? editing;
-  final bool preselectIncome;
 
   const TransactionFormScreen({
     super.key,
     this.editing,
-    this.preselectIncome = false,
   });
 
   @override
@@ -40,10 +38,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   void initState() {
     super.initState();
     final t = widget.editing;
-    _type = t?.type ??
-        (widget.preselectIncome
-            ? TransactionType.receita
-            : TransactionType.despesa);
+    _type = t?.type ?? TransactionType.despesa;
     _date = t?.date ?? DateTime.now();
     _paymentMethod = t?.paymentMethod ?? PaymentMethod.dinheiro;
     _category = t?.category ??
