@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
@@ -23,8 +20,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
-  bool _isLoadingGoogle = false;
-  bool _isLoadingFacebook = false;
   bool _obscurePassword = true;
 
   @override
@@ -32,19 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  bool get _anyLoading =>
-      _isLoading || _isLoadingGoogle || _isLoadingFacebook;
-
-  bool get _socialEnabled {
-    final hasFacebook =
-        (dotenv.env['FACEBOOK_APP_ID']?.isNotEmpty == true) &&
-            (dotenv.env['FACEBOOK_CLIENT_TOKEN']?.isNotEmpty == true);
-    final hasGoogle =
-        (dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID']?.isNotEmpty == true) ||
-            (dotenv.env['FIREBASE_ANDROID_API_KEY']?.isNotEmpty == true);
-    return hasFacebook && hasGoogle;
   }
 
   Future<void> _login() async {
@@ -71,46 +53,6 @@ class _LoginScreenState extends State<LoginScreen> {
       _mostrarErro('Ocorreu um erro ao entrar.');
     } finally {
       if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _loginComGoogle() async {
-    setState(() => _isLoadingGoogle = true);
-    try {
-      final user = await context.read<AuthService>().signInWithGoogle();
-      if (user == null) {
-        return; // cancelado pelo usuario
-      }
-      _navegarParaDashboard();
-    } on AuthException catch (e) {
-      _mostrarErro(e.message);
-    } on FirebaseAuthException catch (e) {
-      _mostrarErro(_mapFirebaseError(e));
-    } catch (_) {
-      _mostrarErro('Ocorreu um erro ao entrar com o Google.');
-    } finally {
-      if (mounted) setState(() => _isLoadingGoogle = false);
-    }
-  }
-
-  Future<void> _loginComFacebook() async {
-    setState(() => _isLoadingFacebook = true);
-    try {
-      final LoginResult result = await FacebookAuth.instance.login();
-      if (result.status == LoginStatus.success) {
-        final OAuthCredential credential =
-            FacebookAuthProvider.credential(result.accessToken!.token);
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        _navegarParaDashboard();
-      } else {
-        _mostrarErro('Login cancelado ou mal sucedido.');
-      }
-    } on FirebaseAuthException catch (e) {
-      _mostrarErro(_mapFirebaseError(e));
-    } catch (_) {
-      _mostrarErro('Ocorreu um erro ao entrar com o Facebook.');
-    } finally {
-      if (mounted) setState(() => _isLoadingFacebook = false);
     }
   }
 
@@ -217,7 +159,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: _anyLoading ? null : _esqueceuSenha,
+                  onPressed: _isLoading ? null : _esqueceuSenha,
                   child: const Text(
                     'Esqueceu a senha?',
                     style: TextStyle(color: _colorGold, fontSize: 13),
@@ -226,42 +168,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 12),
               _buildPrimaryButton(
-                onPressed: _anyLoading ? null : _login,
+                onPressed: _isLoading ? null : _login,
                 isLoading: _isLoading,
                 label: 'Entrar',
               ),
-              const SizedBox(height: 28),
-              if (_socialEnabled) ...[
-                _buildDivider(),
-                const SizedBox(height: 22),
-                const Text(
-                  'Ou conecte usando',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey, fontSize: 13),
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _socialButton(
-                      icon: FontAwesomeIcons.google,
-                      color: const Color(0xFFDB4437),
-                      isLoading: _isLoadingGoogle,
-                      onTap: _anyLoading ? () {} : _loginComGoogle,
-                      tooltip: 'Entrar com Google',
-                    ),
-                    const SizedBox(width: 24),
-                    _socialButton(
-                      icon: FontAwesomeIcons.facebookF,
-                      color: const Color(0xFF1877F2),
-                      isLoading: _isLoadingFacebook,
-                      onTap: _anyLoading ? () {} : _loginComFacebook,
-                      tooltip: 'Entrar com Facebook',
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 32),
-              ],
+              const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -356,57 +267,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-    );
-  }
-
-  Widget _buildDivider() {
-    return Row(
-      children: [
-        Expanded(
-            child:
-                Divider(color: Colors.white.withValues(alpha: 0.12), thickness: 1)),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12),
-          child: Text('ou', style: TextStyle(color: Colors.grey, fontSize: 13)),
-        ),
-        Expanded(
-            child:
-                Divider(color: Colors.white.withValues(alpha: 0.12), thickness: 1)),
-      ],
-    );
-  }
-
-  Widget _socialButton({
-    required FaIconData icon,
-    required Color color,
-    required bool isLoading,
-    required VoidCallback onTap,
-    required String tooltip,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(50),
-        child: Container(
-          padding: const EdgeInsets.all(18),
-          decoration: BoxDecoration(
-            color: _colorCard,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
-          ),
-          child: isLoading
-              ? SizedBox(
-                  height: 24,
-                  width: 24,
-                  child: CircularProgressIndicator(
-                    color: color,
-                    strokeWidth: 2,
-                  ),
-                )
-              : FaIcon(icon, color: color, size: 24),
-        ),
-      ),
     );
   }
 }

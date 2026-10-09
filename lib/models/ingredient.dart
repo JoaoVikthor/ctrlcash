@@ -108,8 +108,9 @@ class Ingredient {
     List<IngredientOffer> offers = const [];
     if (rawOffers is List) {
       offers = rawOffers
+          .whereType<Map>()
           .map((e) =>
-              IngredientOffer.fromMap(Map<String, dynamic>.from(e as Map)))
+              IngredientOffer.fromMap(Map<String, dynamic>.from(e)))
           .toList();
     }
     return Ingredient(

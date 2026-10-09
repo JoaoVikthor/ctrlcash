@@ -39,7 +39,10 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
           if (snapshot.hasError) {
             return ErrorState(
               message: 'Não foi possível carregar o histórico.',
-              onRetry: () => setState(() {}),
+              onRetry: () {
+                provider.reconnectAuditLogs();
+                setState(() {});
+              },
             );
           }
           if (snapshot.connectionState == ConnectionState.done &&

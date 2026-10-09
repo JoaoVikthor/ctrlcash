@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/app_user.dart';
 import 'firestore_service.dart';
@@ -12,14 +11,11 @@ import 'firestore_service.dart';
 class AuthService {
   AuthService({
     FirebaseAuth? auth,
-    GoogleSignIn? googleSignIn,
     FirestoreService? firestore,
   })  : _auth = auth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn(),
         _firestore = firestore ?? FirestoreService();
 
   final FirebaseAuth _auth;
-  final GoogleSignIn _googleSignIn;
   final FirestoreService _firestore;
 
   /// Stream do estado de autenticacao: emite o [User] atual ou null.
@@ -77,27 +73,9 @@ class AuthService {
     }
   }
 
-  /// Login com Google (fluxo nativo do google_sign_in + Firebase cred).
-  Future<User?> signInWithGoogle() async {
-    try {
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) return null; // cancelado pelo usuario
-      final googleAuth = await googleUser.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
-      final userCred = await _auth.signInWithCredential(credential);
-      return userCred.user;
-    } on FirebaseAuthException catch (e) {
-      throw AuthException(friendlyAuthError(e));
-    }
-  }
-
-  /// Encerra a sessao atual (Firebase + Google).
+  /// Encerra a sessao atual.
   Future<void> signOut() async {
     await _auth.signOut();
-    await _googleSignIn.signOut();
   }
 
   /// Mapeia codigos de erro do FirebaseAuth para mensagens amigaveis em

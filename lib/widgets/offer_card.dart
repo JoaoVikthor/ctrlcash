@@ -12,6 +12,7 @@ class OfferCard extends StatelessWidget {
   final VoidCallback onSet;
   final VoidCallback onEdit;
   final VoidCallback onToggle;
+  final VoidCallback? onDelete;
 
   const OfferCard({
     super.key,
@@ -20,6 +21,7 @@ class OfferCard extends StatelessWidget {
     required this.onSet,
     required this.onEdit,
     required this.onToggle,
+    this.onDelete,
   });
 
   @override
@@ -144,6 +146,15 @@ class OfferCard extends StatelessWidget {
                   enabled ? 'Desativar' : 'Ativar',
                   onToggle,
                 ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 8),
+                  _action(
+                    Icons.delete_outline,
+                    'Excluir',
+                    onDelete!,
+                    color: const Color(0xFF7A8B83),
+                  ),
+                ],
               ],
             ),
           ],
@@ -152,7 +163,12 @@ class OfferCard extends StatelessWidget {
     );
   }
 
-  Widget _action(IconData icon, String tooltip, VoidCallback onPressed) {
+  Widget _action(
+    IconData icon,
+    String tooltip,
+    VoidCallback onPressed, {
+    Color? color,
+  }) {
     return Tooltip(
       message: tooltip,
       child: InkWell(
@@ -164,7 +180,7 @@ class OfferCard extends StatelessWidget {
           alignment: Alignment.center,
           child: Icon(
             icon,
-            color: const Color(0xFFB89775),
+            color: color ?? const Color(0xFFB89775),
             size: 22,
           ),
         ),

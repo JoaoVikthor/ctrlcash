@@ -26,6 +26,7 @@ class IngredientProvider extends ChangeNotifier {
   List<Ingredient> _list = const [];
   bool _loading = true;
   String? _error;
+  Stream<List<PriceAuditLog>>? _auditLogsStream;
 
   List<Ingredient> get list => _list;
   bool get loading => _loading;
@@ -46,6 +47,7 @@ class IngredientProvider extends ChangeNotifier {
     final newUid = _userProvider?.uid;
     if (newUid != _uid) {
       _uid = newUid;
+      _auditLogsStream = null;
       _connect();
     }
   }
@@ -114,7 +116,13 @@ class IngredientProvider extends ChangeNotifier {
 
   Stream<List<PriceAuditLog>> get auditLogs {
     if (_uid == null) return Stream.empty();
-    return _firestore.priceAuditLogsStream(_uid!);
+    _auditLogsStream ??= _firestore.priceAuditLogsStream(_uid!);
+    return _auditLogsStream!;
+  }
+
+  void reconnectAuditLogs() {
+    _auditLogsStream = null;
+    notifyListeners();
   }
 
   void reload() => _connect();

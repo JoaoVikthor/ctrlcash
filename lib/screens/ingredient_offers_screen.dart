@@ -390,6 +390,7 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
         },
       ),
       onToggle: () => _toggleOffer(ingredient, ranked.offer),
+      onDelete: () => _deleteOffer(ingredient, ranked.offer),
     );
   }
 
@@ -505,8 +506,50 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Não foi possível trocar a oferta.'),
+        SnackBar(
+          content: Text('Não foi possível trocar a oferta: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteOffer(Ingredient ingredient, IngredientOffer offer) async {
+    final isActive = ingredient.activeOffer?.id == offer.id;
+    final body = isActive
+        ? '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nEsta é a oferta ATIVA. Ao excluir, o ticket volta ao preço base até você escolher outra oferta.'
+        : '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un';
+    final note = isActive
+        ? 'A oferta ativa será removida.'
+        : 'A exclusão não pode ser desfeita.';
+
+    final provider = context.read<IngredientProvider>();
+
+    final ok = await ConfirmActionDialog.show(
+      context,
+      title: 'Excluir oferta?',
+      body: body,
+      note: note,
+    );
+    if (!ok) return;
+
+    try {
+      await provider.deleteOffer(
+        ingredient.id,
+        offer.id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Oferta de ${offer.supplier} excluída.'),
+          backgroundColor: _colorGold,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erro ao excluir oferta: $e'),
           backgroundColor: Colors.red,
         ),
       );

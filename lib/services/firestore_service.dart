@@ -177,8 +177,9 @@ class FirestoreService {
       final rawOffers = data['offers'];
       current = rawOffers is List
           ? rawOffers
-              .map((e) => IngredientOffer.fromMap(
-                  Map<String, dynamic>.from(e as Map)))
+              .whereType<Map>()
+              .map((e) =>
+                  IngredientOffer.fromMap(Map<String, dynamic>.from(e)))
               .toList()
           : [];
       currentActiveId = data['activeOfferId'] as String?;
@@ -273,13 +274,14 @@ class FirestoreService {
     final rawOffers = data['offers'];
     if (rawOffers is! List) return;
     final offers = rawOffers
+        .whereType<Map>()
         .map((e) =>
-            IngredientOffer.fromMap(Map<String, dynamic>.from(e as Map)))
+            IngredientOffer.fromMap(Map<String, dynamic>.from(e)))
         .toList();
     if (offers.isEmpty && offerId == 'legacy') return;
     final chosen = offers.firstWhere(
       (o) => o.id == offerId,
-      orElse: () => offers.first,
+      orElse: () => throw Exception('Oferta não encontrada.'),
     );
     final updated = offers
         .map((o) => o.copyWith(isActive: o.id == chosen.id))
@@ -316,8 +318,9 @@ class FirestoreService {
     final rawOffers = data['offers'];
     if (rawOffers is! List) return;
     final offers = rawOffers
+        .whereType<Map>()
         .map((e) =>
-            IngredientOffer.fromMap(Map<String, dynamic>.from(e as Map)))
+            IngredientOffer.fromMap(Map<String, dynamic>.from(e)))
         .toList();
     final index = offers.indexWhere((o) => o.id == offerId);
     if (index < 0) return;
@@ -362,8 +365,9 @@ class FirestoreService {
     final rawOffers = data['offers'];
     if (rawOffers is! List) return;
     final offers = rawOffers
+        .whereType<Map>()
         .map((e) =>
-            IngredientOffer.fromMap(Map<String, dynamic>.from(e as Map)))
+            IngredientOffer.fromMap(Map<String, dynamic>.from(e)))
         .toList();
     final index = offers.indexWhere((o) => o.id == offerId);
     if (index < 0) return;
