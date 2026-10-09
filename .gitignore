@@ -68,3 +68,5 @@ app.*.map.json
 *.msi
 *.apk
 *.aab
+# Widget Preview related
+.widget_preview/
