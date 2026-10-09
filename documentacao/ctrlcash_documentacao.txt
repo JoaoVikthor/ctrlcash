@@ -1,0 +1,466 @@
+================================================================================
+                         CASHCTRL - DOCUMENTACAO COMPLETA
+================================================================================
+
+1. INTRODUCAO
+================================================================================
+
+CashCtrl e um aplicativo movel desenvolvido em Flutter com backend Firebase,
+projetado para auxiliar microempreendedores e pequenos negocios no controle
+financeiro e na gestao de custos de produtos.
+
+Seu diferencial e o Calculador de Ficha Tecnica (Ticket do Produto), que permite
+ao usuario cadastrar materias-primas (insumos), montar receitas de produtos e
+calcular automaticamente se cada produto gera lucro ou prejuizo, apresentando
+o custo detalhado por ingrediente.
+
+
+2. VISAO GERAL DO CASHCTRL
+================================================================================
+
+- Nome do App: CashCtrl
+- Versao: 1.0.0+1
+- Plataformas: Android (principal), Web
+- Framework: Flutter (Dart SDK ^3.11.5)
+- Backend: Firebase (Auth, Firestore, Storage)
+- Gerenciamento de Estado: Provider
+- Tema Visual: Dark com acentos verdes e dourados
+
+Funcionalidades Principais:
+  - Autenticacao (Email/Senha, Google, Facebook)
+  - Cadastro de usuario com dados pessoais e empresariais
+  - Gestao de transacoes financeiras (receitas e despesas)
+  - Orcamentos mensais por categoria
+  - Relatorios e analises com graficos
+  - Parque de Insumos (materias-primas)
+  - Ficha Tecnica de Produtos (receitas com custos)
+  - Calculo automatico de lucro/prejuizo por produto
+  - Escaneamento de codigos de barras
+  - Leitura de foto do produto
+
+
+3. REQUISITOS DO CASHCTRL
+================================================================================
+
+Dependencias Principais:
+  - firebase_core          ^3.0.0    Inicializacao do Firebase
+  - firebase_auth          ^5.0.0    Autenticacao
+  - cloud_firestore        ^5.0.0    Banco de dados NoSQL
+  - firebase_storage       ^12.0.0   Upload de arquivos
+  - google_sign_in         ^6.2.1    Login com Google
+  - flutter_facebook_auth  ^6.1.0    Login com Facebook
+  - provider               ^6.1.2    Gerenciamento de estado
+  - fl_chart               ^0.69.0   Graficos (pizza e barras)
+  - image_picker           ^1.1.2    Captura de fotos
+  - mobile_scanner         ^6.0.2    Escaneamento de codigos de barras
+  - flutter_dotenv         ^5.2.0    Variaveis de ambiente (.env)
+  - font_awesome_flutter   ^10.7.0   Icones de redes sociais
+
+Configuracao Necessaria:
+  - Arquivo .env com chaves Firebase (project ID, API keys, app IDs)
+  - Projeto Firebase configurado (projeto ID: crtlcash-71ac3)
+  - Regras de Firestore e Storage configuradas
+  - Google Services (Android) / GoogleService-Info.plist (iOS)
+
+
+4. ESTRUTURA DE DIRETORIOS E SUBDIRETORIOS
+================================================================================
+
+ctrlcash/
+|-- assets/
+|   |-- images/              Imagens do app (logo, icones, banners)
+|
+|-- lib/                     Codigo-fonte principal
+|   |-- main.dart            Ponto de entrada do app
+|   |-- firebase_options.dart Configuracao Firebase
+|   |-- home_screen.dart     Tela principal (Dashboard)
+|   |-- budgets_screen.dart  Tela de orcamentos
+|   |-- expenses_screen.dart Tela de transacoes
+|   |-- reports_screen.dart  Tela de relatorios
+|   |-- settings_screen.dart Tela de configuracoes
+|   |
+|   |-- models/              Modelos de dados
+|   |   |-- app_user.dart    Modelo de usuario
+|   |   |-- transaction.dart Modelo de transacao
+|   |   |-- budget.dart      Modelo de orcamento
+|   |   |-- ingredient.dart  Modelo de insumo
+|   |   |-- product.dart     Modelo de produto/receita
+|   |
+|   |-- services/            Servicos Firebase
+|   |   |-- auth_service.dart    Servico de autenticacao
+|   |   |-- firestore_service.dart Servico CRUD Firestore
+|   |   |-- storage_service.dart  Servico de upload
+|   |
+|   |-- providers/           Gerenciamento de estado
+|   |   |-- user_provider.dart       Estado do usuario
+|   |   |-- transaction_provider.dart Estado das transacoes
+|   |   |-- budget_provider.dart     Estado dos orcamentos
+|   |   |-- ingredient_provider.dart Estado dos insumos
+|   |   |-- product_provider.dart    Estado dos produtos
+|   |
+|   |-- screens/             Telas do aplicativo
+|   |   |-- login_screen.dart        Tela de login
+|   |   |-- cadastro_screen.dart     Tela de cadastro
+|   |   |-- transaction_form_screen.dart  Formulario de transacao
+|   |   |-- budget_form_screen.dart  Formulario de orcamento
+|   |   |-- ingredients_screen.dart  Lista de insumos
+|   |   |-- ingredient_form_screen.dart Formulario de insumo
+|   |   |-- products_screen.dart     Lista de produtos
+|   |   |-- product_form_screen.dart Formulario de produto
+|   |   |-- product_detail_screen.dart Detalhes do produto (ticket)
+|   |   |-- product_scanner_screen.dart Escaneador de barras
+|   |   |-- settings/
+|   |       |-- edit_profile_screen.dart     Editar perfil
+|   |       |-- notifications_screen.dart    Notificacoes
+|   |       |-- security_screen.dart         Seguranca
+|   |       |-- help_screen.dart             Ajuda
+|   |
+|   |-- utils/               Funcoes utilitarias
+|   |   |-- categories.dart          Categorias pre-definidas
+|   |   |-- format.dart              Formatacao de moeda e data
+|   |   |-- product_calculator.dart  Calculo de ficha tecnica
+|   |
+|   |-- widgets/             Widgets reutilizaveis
+|       |-- app_branded_header.dart  AppBar personalizado
+|       |-- app_drawer.dart          Menu lateral de navegacao
+|       |-- category_pie_chart.dart  Grafico de pizza por categoria
+|
+|-- test/
+|   |-- widget_test.dart     Teste de widget (CadastroScreen)
+|
+|-- web/                     Plataforma web
+|-- android/                 Plataforma Android
+|-- .env.example             Template de variaveis de ambiente
+|-- firebase.json            Configuracao Firebase
+|-- firestore.rules          Regras de seguranca Firestore
+|-- storage.rules            Regras de seguranca Storage
+
+
+5. DESCRICAO DA IMPLEMENTACAO
+================================================================================
+
+5.1 MODELOS (lib/models/)
+  - AppUser: Perfil do usuario (nome, email, empresa, CNPJ, segmento, telefone,
+             endereco, foto)
+  - AppTransaction: Transacao financeira (tipo receita/despesa, categoria,
+                    descricao, valor, data, metodo de pagamento, recorrente,
+                    notas, comprovante)
+  - Budget: Orcamento mensal por categoria com limite de gasto
+  - Ingredient: Insumo/materia-prima (nome, unidade, preco de compra,
+                quantidade por pacote, preco por unidade calculado)
+  - Product: Produto com receita (lista de ingredientes com quantidades),
+             custos adicionais (mao de obra, embalagem), preco de venda,
+             codigo de barras, foto
+
+5.2 SERVICOS (lib/services/)
+  - AuthService: Login/cadastro por Email+Senha, Google Sign-In e Facebook.
+                 Tratamento de erros em portugues para todos os codigos do
+                 Firebase Auth.
+  - FirestoreService: CRUD completo para todas as entidades. Todos os dados
+                      estao isolados por UID do usuario sob users/{uid}/.
+                      Suporte a streams em tempo real.
+  - StorageService: Upload e exclusao de arquivos no Firebase Storage.
+                    Usado para fotos de perfil e de produtos.
+
+5.3 PROVIDERS (lib/providers/)
+  - UserProvider: Gerencia estado do usuario, carrega/salva perfil
+  - TransactionProvider: Lista de transacoes com totais calculados
+                         (receitas, despesas, saldo)
+  - BudgetProvider: Orcamentos com stream em tempo real
+  - IngredientProvider: Insumos com mapa id->ingrediente para calculadora
+  - ProductProvider: Produtos com busca por codigo de barras e por ID
+
+5.4 TELAS (lib/screens/)
+  - Login: Email/senha + Google + Facebook + link para cadastro
+  - Cadastro: Wizard em 2 passos (dados pessoais + dados empresariais)
+  - Dashboard: Saldo total, receitas, despesas, deficit, grafico de pizza,
+               5 transacoes mais recentes
+  - Transacoes: Lista completa com busca, filtros (tipo/categoria),
+                resumo (receitas/despesas/saldo), swipe-to-delete
+  - Formulario Transacao: Toggle receita/despesa, valor, descricao,
+                          categoria, metodo pagamento, data, recorrencia
+  - Orcamentos: Limites mensais por categoria com barra de progresso
+  - Formulario Orcamento: Categoria, limite mensal, calculo por dia/semana
+  - Relatorios: 4 KPIs, grafico de barras 6 meses, pizza por categoria,
+                ranking top 5 categorias
+  - Insumos: Lista com preco por unidade, swipe-to-delete
+  - Formulario Insumo: Nome, preco compra, quantidade pacote, unidade,
+                       preview do preco por unidade
+  - Produtos: Lista com lucro/prejuizo por produto, contagem de insumos
+  - Formulario Produto: Nome, descricao, preco venda, foto, codigo barras,
+                        seletor de insumos, tabela de receita com quantidades,
+                        custos de mao de obra e embalagem, preview ao vivo
+  - Detalhes Produto (Ticket): Veredicto lucro/prejuizo, margem %, markup,
+                               custo por ingrediente, resumo de custos
+  - Escaneador: Leitura de codigo de barras, reconhecimento de produto,
+                captura de foto para identificacao
+  - Configuracoes: Editar perfil, notificacoes, seguranca, ajuda, logout
+
+5.5 UTILITARIOS (lib/utils/)
+  - Categories: 12 categorias de despesa + 6 de receita, cada uma com
+                nome, icone e cor
+  - Format: Formatacao de moeda (R$ 1.234,56) e datas (09/09/2026)
+  - ProductCalculator: Calculo puro da ficha tecnica - retorna TicketResult
+                       com custos por linha, totais, lucro, margem, markup
+
+5.6 WIDGETS (lib/widgets/)
+  - AppBrandedHeader: AppBar com menu hamburguer ou seta voltar, titulo/logo
+  - AppDrawer: Menu lateral com 7 itens (Dashboard, Produtos, Insumos,
+               Orcamentos, Transacoes, Relatorios, Configuracoes)
+  - CategoryPieChart: Grafico de pizza interativo com legenda
+
+
+6. DIAGRAMA ENTIDADE-RELACIONAMENTO
+================================================================================
+
+O banco de dados Firestore utiliza uma estrutura hierarquica com isolamento
+por usuario (cada usuario so acessa seus proprios dados):
+
+  users (colecao principal)
+    |
+    |-- {uid} (documento do usuario)
+          |
+          |-- transactions (subcolecao)
+          |     |-- {txId}
+          |
+          |-- budgets (subcolecao)
+          |     |-- {budgetId}
+          |
+          |-- ingredients (subcolecao)
+          |     |-- {ingredientId}
+          |
+          |-- products (subcolecao)
+                |-- {productId}
+
+Relacoes:
+  - transactions.budgetId -> budgets.id (referencia opcional)
+  - products.recipe[].ingredientId -> ingredients.id (referencia ao insumo)
+
+
+7. ESQUEMA DO BANCO DE DADOS
+================================================================================
+
+7.1 users/{uid}
+  - nome: String
+  - email: String
+  - empresa: String (opcional)
+  - cnpj: String (opcional)
+  - segmento: String (opcional)
+  - telefone: String (opcional)
+  - endereco: String (opcional)
+  - photoUrl: String (opcional)
+
+7.2 users/{uid}/transactions/{txId}
+  - type: "receita" | "despesa"
+  - category: String (ex: "Alimentacao", "Vendas")
+  - description: String
+  - amount: Number (double, deve ser > 0)
+  - date: String (ISO 8601)
+  - paymentMethod: "dinheiro"|"credito"|"debito"|"pix"|"transferencia"|"outro"
+  - recurring: Boolean
+  - notes: String (opcional)
+  - receiptUrl: String (opcional)
+  - budgetId: String (opcional, referencia ao orcamento)
+
+7.3 users/{uid}/budgets/{budgetId}
+  - category: String
+  - limit: Number (double)
+  - monthly: Boolean
+  - createdAt: String (ISO 8601)
+
+7.4 users/{uid}/ingredients/{ingredientId}
+  - name: String
+  - unit: "g"|"kg"|"L"|"ml"|"un"|"pct"
+  - purchasePrice: Number (double)
+  - packageQuantity: Number (double)
+  - createdAt: String (ISO 8601)
+
+7.5 users/{uid}/products/{productId}
+  - name: String
+  - description: String
+  - recipe: Array<{ingredientId, ingredientName, quantity}>
+  - laborCost: Number (double)
+  - packagingCost: Number (double)
+  - salePrice: Number (double)
+  - photoUrl: String (opcional)
+  - barcode: String (opcional)
+  - createdAt: String (ISO 8601)
+
+
+8. INSTALACAO DO CASHCTRL
+================================================================================
+
+1. Clonar o repositorio:
+   git clone https://github.com/JoaoVikthor/ctrlcash.git
+   cd ctrlcash
+
+2. Configurar variaveis de ambiente:
+   Copie o arquivo .env.example para .env e preencha com suas chaves Firebase:
+   - FIREBASE_PROJECT_ID
+   - FIREBASE_API_KEY_ANDROID
+   - FIREBASE_API_KEY_WEB
+   - FIREBASE_APP_ID_ANDROID
+   - FIREBASE_APP_ID_WEB
+   - GOOGLE_SIGN_IN_CLIENT_ID
+   - FACEBOOK_APP_ID
+   - FACEBOOK_CLIENT_TOKEN
+
+3. Configurar Firebase:
+   - Criar projeto no Firebase Console (ou usar existente)
+   - Ativar Authentication (Email/Senha, Google, Facebook)
+   - Criar Firestore Database e aplicar firestore.rules
+   - Ativar Storage e aplicar storage.rules
+
+4. Instalar dependencias e executar:
+   flutter pub get
+   flutter run
+
+   Para web:
+   flutter run -d chrome
+
+
+9. MANUAL DO USUARIO
+================================================================================
+
+9.1 Login e Cadastro
+  - Acesse o app e faca login com Email/Senha, Google ou Facebook
+  - Para criar conta, toque em "Cadastrar-se" e siga o wizard de 2 passos
+  - Passo 1: Dados pessoais (nome, email, senha, confirmacao, termos)
+  - Passo 2: Dados empresariais (empresa, CNPJ, segmento, telefone, endereco)
+
+9.2 Dashboard
+  - Tela inicial mostra saldo total, receitas, despesas e deficit
+  - Grafico de pizza com distribuicao de despesas por categoria
+  - 5 transacoes mais recentes
+  - Botao "Nova Transacao" para adicionar rapido
+
+9.3 Transacoes
+  - Acesse via menu lateral > Transacoes
+  - Barra de resumo no topo (receitas, despesas, saldo)
+  - Busca por descricao ou categoria
+  - Filtros por tipo (Todas, Receitas, Despesas) e por categoria
+  - Deslize para esquerda para excluir
+  - Toque no "+" para criar nova transacao
+  - No formulario: selecione tipo, informe valor, descricao, categoria,
+    metodo de pagamento, data, opcao de recorrencia e notas
+
+9.4 Orcamentos
+  - Acesse via menu lateral > Orcamentos
+  - Defina limites de gasto mensal por categoria
+  - Acompanhe o progresso com barra de porcentagem
+  - Visualize quanto falta por dia e por semana
+
+9.5 Relatorios
+  - Acesse via menu lateral > Relatorios
+  - 4 indicadores: Lucro Liquido, Margem, Receita Total, Despesa Total
+  - Grafico de barras comparando receitas vs despesas (6 meses)
+  - Grafico de pizza de distribuicao de despesas
+  - Ranking das 5 maiores categorias de despesa
+
+
+10. MANUAL DO ADMINISTRADOR
+================================================================================
+
+10.1 Gerenciamento de Perfil
+  - Acesse Configuracoes > Editar Perfil
+  - Altere dados pessoais e empresariais
+  - Atualize foto do perfil (tirar foto com a camera)
+
+10.2 Seguranca e Privacidade
+  - Acesse Configuracoes > Seguranca e Privacidade
+  - Opcoes: Alterar senha, Email de recuperacao, Dispositivos conectados,
+            Politica de privacidade, Termos de uso, Excluir conta
+
+10.3 Notificacoes
+  - Acesse Configuracoes > Notificacoes
+  - Configure alertas de orcamento
+  - Lembretes de despesas recorrentes
+  - Alertas de produtos com margem baixa
+  - Horario preferido para notificacoes
+
+10.4 Dados e Isolamento
+  - Todos os dados sao isolados por usuario (UID)
+  - Nenhum usuario acessa dados de outro
+  - Regras de seguranca Firestore e Storage garantem o isolamento
+
+
+11. MANUAL DO ESTUDANTE
+================================================================================
+
+11.1 Parque de Insumos
+  - Acesse menu lateral > Insumos
+  - Cadastre materias-primas: nome, preco de compra, quantidade por pacote
+  - Escolha a unidade de medida (g, kg, L, ml, un, pct)
+  - O preco por unidade base e calculado automaticamente
+  - Exemplo: Compra de R$ 10,00 por pacote de 5kg -> R$ 2,00/kg
+
+11.2 Ficha Tecnica de Produtos
+  - Acesse menu lateral > Produtos
+  - Crie um novo produto: nome, descricao, preco de venda
+  - Adicione ingredientes do parque de insumos com quantidades
+  - Informe custos de mao de obra e embalagem
+  - O preview ao vivo mostra custo total, lucro/prejuizo e margem em tempo real
+  - Regra: produto precisa de pelo menos 1 ingrediente e preco de venda > 0
+
+11.3 Ticket do Produto
+  - Acesse detalhes do produto para ver o ticket completo
+  - Custo detalhado por ingrediente (quantidade x preco unitario)
+  - Alerta para ingredientes que nao existem mais no parque
+  - Resumo: subtotal insumos + mao de obra + embalagem = custo total
+  - Veredicto: "ESTE PRODUTO DA LUCRO" ou "ESTE PRODUTO DA PREJUIZO"
+  - Margem percentual e multiplicador de markup
+
+11.4 Escaneamento
+  - Acesse menu lateral > Produtos > Escanear
+  - Escaneie codigo de barras para identificar produto existente
+  - Se nao existir, o barcode e pre-preenchido no formulario de cadastro
+  - Tire uma foto do produto para facilitar identificacao futura
+
+11.5 Calculo de Lucro/Prejuizo (ProductCalculator)
+  - O calculo e: Lucro = Preco Venda - (Total Insumos + Mao de Obra + Embalagem)
+  - Margem % = (Lucro / Preco Venda) x 100
+  - Markup = Preco Venda / Custo Total
+  - Se Lucro > 0 -> Produto da LUCRO (exibido em verde)
+  - Se Lucro < 0 -> Produto da PREJUIZO (exibido em vermelho)
+
+
+12. CONSIDERACOES FINAIS
+================================================================================
+
+12.1 Arquitetura
+  - Arquitetura em camadas: Models -> Services -> Providers -> Screens
+  - Gerenciamento de estado via Provider com streams Firestore em tempo real
+  - Separacao de responsabilidades clara entre camadas
+  - Calculadora de ficha tecnica como classe utilitaria pura (testavel)
+
+12.2 Regras de Negocio
+  - RN01: Valores de transacao devem ser maiores que zero
+  - RN02: Isolamento total por UID em Firestore e Storage
+  - RN03: Preco por unidade = preco compra / quantidade pacote
+  - RN04: Lucro/Prejuizo = preco venda - (insumos + mao de obra + embalagem)
+
+12.3 Sistema de Cores
+  - Fundo:           #0D1E16 (verde-escuro/preto)
+  - Verde Principal: #165A41 (botoes, estados ativos)
+  - Dourado:         #B89775 (destaques, icones)
+  - Cartoes:         #142A20 (fundo de cards)
+  - Texto Secundario:#7A8B83 (legendas)
+  - Erro:            Vermelho
+  - Sucesso:         Verde
+
+12.4 Seguranca
+  - Chaves Firebase nunca sao hardcoded (carregadas de .env)
+  - Regras Firestore bloqueiam acesso nao autorizado
+  - Regras Storage isolam arquivos por UID
+
+
+13. INOVACOES
+================================================================================
+
+Funcionalidades planejadas para futuras implementacoes:
+
+[ Espaco reservado para novas inovacoes ]
+
+--------------------------------------------------------------------------------
+Fim da documentacao - CashCtrl v1.0.0
+================================================================================

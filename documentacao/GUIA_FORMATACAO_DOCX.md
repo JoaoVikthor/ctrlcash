@@ -1,0 +1,152 @@
+# Guia de Formatação — DOCX do CashCtrl no padrão BIBLIOTECA
+
+Guia do pipeline de geração dos relatórios técnicos do CashCtrl, espelhando o
+template `documentacao/BIBLIOTECA_113_RT_279.docx` (relatório técnico ICMC
+"Documentação Técnica da Aplicação Web Homework").
+
+---
+
+## 1. Pipeline de geração
+
+```
+Markdown (autoria)  →  HTML (estilos do template)  →  soffice --headless  →  .docx
+```
+
+Arquivos do Sprint 2 (Proposta A):
+
+| Etapa | Arquivo |
+|-------|---------|
+| Autoria (Markdown) | `documentacao/logs/sprint2/docs_sprint2_proposta_a.md` |
+| HTML com estilos | `documentacao/logs/sprint2/ctrlcash_sprint2_proposta_a_rt.html` |
+| DOCX final | `documentacao/CTRLCASH_SPRINT2_PROPOSTA_A_RT.docx` |
+
+Arquivos do Sprint 3 (RT v2 — capítulo de implementação futura; o DOCX da Sprint 2
+permanece preservado, sem sobrescrita):
+
+| Etapa | Arquivo |
+|-------|---------|
+| Autoria do capítulo (Markdown) | `documentacao/logs/sprint3/docs_sprint3_painel_precos_futuro.md` |
+| RT v2 fundido (Markdown) | `documentacao/logs/sprint3/docs_rt_v2_com_capitulo_futuro.md` |
+| HTML com estilos | `documentacao/logs/sprint3/ctrlcash_sprint3_rt_v2.html` |
+| DOCX final (novo, v2) | `documentacao/CTRLCASH_SPRINT3_PAINEL_COMPARACAO_FUTURO_RT.docx` |
+
+Comando de conversão (o filtro precisa ser explícito para HTML→DOCX):
+
+```bash
+soffice --headless --convert-to "docx:MS Word 2007 XML" \
+  --outdir documentacao documentacao/logs/sprint3/ctrlcash_sprint3_rt_v2.html
+mv documentacao/ctrlcash_sprint3_rt_v2.docx \
+   documentacao/CTRLCASH_SPRINT3_PAINEL_COMPARACAO_FUTURO_RT.docx
+```
+
+Verificar antes: `soffice --version` (validado com LibreOffice 25.2.3.2).
+
+### Pós-processamento obrigatório: rodapé com página
+
+O import HTML→DOCX do LibreOffice não cria rodapé. Após a conversão, injetar
+`word/footer1.xml` (texto + campo `PAGE`), registrar em
+`word/_rels/document.xml.rels` (`rIdFtr1`), em `[Content_Types].xml`
+(`footer+xml`) e inserir `<w:footerReference w:type="default" r:id="rIdFtr1"/>`
+no `<w:sectPr>` (com `w:footer="567"` no `pgMar`). O script usado está no
+histórico da sessão de documentação; estrutura validada do campo:
+
+```xml
+<w:r><w:fldChar w:fldCharType="begin"/></w:r>
+<w:r><w:instrText xml:space="preserve">PAGE</w:instrText></w:r>
+<w:r><w:fldChar w:fldCharType="end"/></w:r>
+```
+
+**Não** usar a forma com `separate` + valor em cache + espaços em `instrText`
+(`" PAGE "`): o LibreOffice renderiza um "X" residual após o número.
+
+## 2. Mapeamento template → HTML/Markdown
+
+| Elemento BIBLIOTECA | Estilo no template | HTML/Markdown |
+|---------------------|--------------------|---------------|
+| Título da capa | Verdana/Times 20–16pt centralizado | `p.cover-title` (Verdana 20pt bold) + `cover-sub`, `cover-authors`, `cover-seal`, `cover-place` |
+| `Ttulo1` (heading 1) | Arial bold 16pt, numerado `%1.` | `<h1>` — numeração explícita no texto (`1.`, `2.`…) |
+| `Ttulo2` (heading 2) | Arial bold 14pt, numerado `%1.%2` | `<h2>` — numeração explícita (`3.1`, `4.2`…) |
+| `Ttulo3` (heading 3) | Arial bold 14pt | `<h3>` (`4.3.1`…) |
+| `Ttulo4` (heading 4) | Palatino Linotype bold 12pt, sem numeração | `<h4>` ("Requisitos:", "Passo a passo:") |
+| `Ttulo5` (heading 5) | Courier New bold | `<h5>` (passos `(1.)`, comandos) |
+| `Corpodetexto` (Body Text) | corpo do template | `<p>` — Georgia 12pt justificado |
+| `PargrafodaLista` (List Paragraph) | recuo de lista | `<ul><li>` — Georgia 12pt |
+| `Sumrio1/2` (toc 1/2) | 12pt | `p.toc1` / `p.toc2` (recuo 24pt) |
+| Tabelas | o BIBLIOTECA original não usa tabela | `<table>` sóbria: bordas finas 0,75pt `#666`, cabeçalho negrito com fundo `#EFEFEF`, larguras explícitas em `%` nos `<th>` |
+| Figuras | legenda "Figura N. descrição" centralizada | `p.cap` (centralizado, itálico 11pt) + bloco `<pre>` (árvore/DER) ou captura |
+| Rodapé | "N — Documentação Técnica …" com PAGE | injetado no DOCX (ver seção 1) |
+
+Comentários de estilo no HTML (rastreabilidade), ex.:
+`<!-- estilo: Ttulo1 | fonte: Arial 16pt bold -->`.
+
+## 3. Fontes e tamanhos (resumo)
+
+- Capa: Verdana 20pt bold (título), 14pt (subtítulo), Georgia 12pt (autores/selo/local/data).
+- H1: Arial 16pt bold · H2/H3: Arial 14pt bold · H4: Palatino Linotype 12pt bold · H5: Courier New 11pt bold.
+- Corpo e listas: Georgia 12pt · Código/`pre`: Courier New 10pt · Tabelas: Georgia 10,5pt · Legendas: Georgia 11pt itálico · Rodapé: 10pt.
+
+## 4. Quebras de página e numeração
+
+- Quebra de página: **estilo inline** `style="page-break-before: always"` no
+  `<h1>`/`<h2>` que abre a página. **Não usar classe CSS** (`.pb`): o import do
+  LibreOffice mescla o nome da classe ao estilo (`Ttulo1pb`) e o título perde a
+  formatação, além de a quebra não ser aplicada.
+- Numeração multilevel do BIBLIOTECA é automática no Word; no HTML usar
+  numeração explícita nos textos dos títulos (`1.`, `3.1`, `4.3.2`).
+- "Indice" é `Ttulo1` **sem** número.
+
+## 5. Como inserir figuras
+
+- Legenda no padrão: `Figura N. descrição` (centralizada, itálico) — `p.cap`.
+- Árvores de diretórios e DER: bloco `<pre>` (Courier New) após a legenda
+  (Figuras 1 e 2 do Sprint 2).
+- Capturas de tela: inserir imagem de `imagens/` ou `assets/images/` quando
+  disponível; sem device/emulador, usar o marcador
+  `[Figura N — captura de tela pendente: descrição]` como legenda
+  (Figuras 3–8 do Sprint 2, pendentes).
+- Validar no PDF de teste (`soffice --convert-to pdf`) se a figura/legenda não
+  quebrou entre páginas.
+- **Numeração contínua entre versões do RT:** capítulos novos continuam a numeração
+  da versão anterior (ex.: RT v2 da Sprint 3 usa Figuras 9–13, continuando as
+  Figuras 1–8 da Sprint 2). Sem screenshot, a legenda cita o artefato de referência
+  (ex.: o protótipo HTML) e marca "captura pendente".
+
+## 6. O que NÃO mudar
+
+- **Paleta do app** (`0xFF0D1E16`, `0xFF165A41`, `0xFFB89775`, `0xFF142A20`,
+  `0xFF7A8B83`) — citada na documentação, nunca alterada no código.
+- **Logo camaleão** (`assets/images/logo.png`) — intocável.
+- **Segredos**: `.env`, `google-services.json`, keystores — nunca citar valores
+  no documento; apenas referenciar os arquivos.
+- **Estilos do template BIBLIOTECA** (fontes/tamanhos da seção 3) — não trocar
+  fontes nem tamanhos dos títulos.
+- **Microcopy real do app** — citar exatamente como no código (ex.: "Usar esta
+  oferta no ticket?", "Nada foi alterado no ticket.", "Limite de 15 ofertas por
+  insumo."); não parafrasear textos de tela.
+
+## 7. Estrutura das seções (padrão do relatório)
+
+1. Capa (título, subtítulo/escopo, autores, selo "RELATÓRIOS TÉCNICOS DO
+   CASHCTRL", local/data) — sem numeração.
+2. "Indice" (Ttulo1 sem número) + entradas `toc1`/`toc2`.
+3. `1. Introdução` — 2 parágrafos curtos (o que o relatório apresenta; objetivo).
+4. `2. Visão Geral` — descrição do software + contexto do sprint/versão.
+5. `3. Requisitos` — 3.1 não-funcionais, 3.2 funcionais (lista).
+6. `4. Projeto Lógico e Implementação` — SoC, estrutura de diretórios (Figura 1),
+   descrição por pasta/arquivo (`arquivo: descrição`), modelo de dados, logs,
+   DER (Figura 2), esquema do banco.
+7. `5. Instalação` — "Requisitos:" e "Passo a passo:" em Ttulo4/Ttulo5, comandos
+   em Courier New; destacar deploy de `firestore.rules` ANTES do app.
+8. `6. Manual do usuário` — subtítulos por tela com Figuras (capturas).
+9. `7. Considerações Finais` — resumo, critérios de aceite, testes, próximos passos.
+
+## 8. Regras de escrita
+
+- PT-BR, tom técnico de relatório.
+- Não inventar funcionalidade: todo nome de arquivo/classe/texto deve existir no
+  código (conferir antes de escrever).
+- Desvios entre plano e código final devem ser registrados explicitamente
+  (ex.: `offer_logic.dart` → `offer_comparator.dart`; evento
+  `offer.defaultRecalculated` não implementado).
+- Ambiente: `flutter analyze` crasha com caminho "(Cópia)" — usar
+  `dart analyze .` e registrar a observação na seção de instalação.

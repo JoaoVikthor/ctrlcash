@@ -11,6 +11,8 @@ O CashCtrl é um app mobile/web de gestão financeira que permite ao usuário:
 - Criar e acompanhar orçamentos mensais por categoria, com progresso em tempo real.
 - Visualizar relatórios com gráficos (pizza, barras) e KPIs (lucro líquido, margem, ROI).
 - Cadastrar um parque de insumos (materiais comprados para fabricar produtos), com cálculo automático de preço por unidade.
+- Comparar ofertas de fornecedores por insumo (preço por unidade, ranking com badges "ATIVA"/"melhor"), escolhendo manualmente a oferta ativa que alimenta o ticket, com cartão informativo de economia possível.
+- Consultar o histórico de auditoria de preços (logs append-only em `price_audit_logs`, com retenção de 180 dias).
 - Criar fichas técnicas de produtos (ex.: um sanduíche), selecionando insumos, quantidades, mão de obra e embalagem.
 - Visualizar o ticket do produto: custo por ingrediente, custo total, ganho/perda e veredito final de lucro ou prejuízo.
 - Identificar produtos por código de barras (scanner via câmera) ou foto, com reconhecimento automático de produtos já cadastrados.
@@ -59,25 +61,30 @@ lib/
     app_user.dart                # Perfil do usuário + dados do negócio
     transaction.dart             # Transação (receita/despesa, método de pagamento)
     budget.dart                  # Orçamento mensal por categoria
-    ingredient.dart              # Insumo (preço de compra → preço por unidade)
+    ingredient.dart              # Insumo (preço de compra → preço por unidade; ofertas[])
+    ingredient_offer.dart        # Oferta de fornecedor embutida no insumo (Sprint 2)
+    price_audit_log.dart         # Log de auditoria de preços (append-only, Sprint 2)
     product.dart                 # Produto/ficha técnica (receita + custos + venda)
   providers/                     # Estado global (ChangeNotifier + streams)
     user_provider.dart           # Perfil + negócio (Firestore)
     transaction_provider.dart    # Stream de transações
     budget_provider.dart         # Stream de orçamentos
-    ingredient_provider.dart    # Stream de insumos (com mapa id→Ingredient)
+    ingredient_provider.dart    # Stream de insumos (mapa id→Ingredient) + ofertas e auditLogs
     product_provider.dart       # Stream de produtos + findByBarcode
   services/                      # Camada de acesso ao Firebase
     auth_service.dart           # FirebaseAuth (login, cadastro, logout)
-    firestore_service.dart       # CRUD no Firestore (isolado por UID)
+    firestore_service.dart       # CRUD no Firestore (isolado por UID) + ofertas com log em batch e migração lazy
     storage_service.dart         # Upload de imagens (Storage, isolado por UID)
   screens/                       # Telas
     login_screen.dart           # Login (e-mail, Google, Facebook)
     cadastro_screen.dart        # Cadastro multi-etapa (pessoal + negócio)
     transaction_form_screen.dart # Nova/editar transação
     budget_form_screen.dart     # Novo/editar orçamento
-    ingredients_screen.dart     # Lista de insumos (parque de insumos)
-    ingredient_form_screen.dart # Cadastrar/editar insumo
+    ingredients_screen.dart     # Lista de insumos (parque de insumos, badge "N ofertas")
+    ingredient_form_screen.dart # Cadastrar/editar insumo (seções "Fornecedor padrão" e "Ofertas")
+    ingredient_offers_screen.dart # Comparativo de fornecedores (ranking por preço/unidade, Sprint 2)
+    offer_form_screen.dart      # Nova/editar oferta de fornecedor (Sprint 2)
+    audit_logs_screen.dart      # Histórico de auditoria de preços, somente leitura (Sprint 2)
     products_screen.dart        # Lista de produtos com veredito de lucro/prejuízo
     product_form_screen.dart    # Ficha técnica (receita + custos + foto + barcode)
     product_detail_screen.dart  # Ticket do produto (custo por ingrediente, veredito)
@@ -91,10 +98,17 @@ lib/
     categories.dart             # Categorias padrão (despesa/receita) com ícones
     format.dart                 # Formatação de moeda (R$) e datas (pt-BR)
     product_calculator.dart     # Calculadora do ticket (lucro/prejuízo, margem)
+    offer_comparator.dart       # Comparação de ofertas: ranking, delta e cenário "melhor fornecedor" (Sprint 2)
   widgets/                       # Widgets reutilizáveis
     app_drawer.dart             # Menu lateral com navegação
     app_branded_header.dart     # AppBar padrão com logo
     category_pie_chart.dart     # Gráfico de pizza de despesas (fl_chart)
+    offer_count_badge.dart, best_price_chip.dart, active_offer_marker.dart,
+    delta_price_text.dart, section_header.dart, search_field.dart,
+    filter_chip_row.dart, empty_state.dart, error_state.dart,
+    offer_limit_banner.dart, confirm_action_dialog.dart, offer_card.dart,
+    audit_entry_tile.dart, economy_summary_card.dart
+                                # Widgets do comparativo de fornecedores/auditoria (Sprint 2)
 android/                          # Configuração Android (google-services.json local)
 web/                             # Build web
 context/                          # Regras do assistente (erros a evitar)
@@ -110,8 +124,9 @@ Todos os dados ficam sob `users/{uid}/...`, garantindo isolamento total por usu�
 - `users/{uid}` — perfil do usuário (nome, e-mail, empresa, CNPJ, segmento, telefone, endereço, photoUrl)
 - `users/{uid}/transactions/{txId}` — transações (tipo, categoria, valor, data, método de pagamento, recorrência)
 - `users/{uid}/budgets/{budgetId}` — orçamentos (categoria, limite mensal)
-- `users/{uid}/ingredients/{ingredientId}` — insumos (nome, unidade, preço de compra, quantidade da embalagem)
+- `users/{uid}/ingredients/{ingredientId}` — insumos (nome, unidade, preço de compra, quantidade da embalagem, `offers[]` com até 15 ofertas de fornecedores e `activeOfferId`)
 - `users/{uid}/products/{productId}` — produtos/fichas técnicas (nome, receita[], mão de obra, embalagem, preço de venda, photoUrl, barcode)
+- `users/{uid}/price_audit_logs/{logId}` — logs de auditoria de preços (append-only: `action`, `entityType`, `entityId`, `summary`, preços antes/depois, `timestamp` serverTimestamp, `expireAt` +180 dias)
 
 ## O Ticket do Produto (recurso central)
 
@@ -134,8 +149,9 @@ O coração do app é mostrar ao usuário o ticket de cada produto. O fluxo:
 
 1. Copie `.env.example` para `.env` e preencha os valores do Firebase.
 2. Coloque `google-services.json` em `android/app/` (baixe do Firebase Console).
-3. `flutter pub get`
-4. `flutter run`
+3. Publique as regras ANTES de rodar o app atualizado: `firebase deploy --only firestore:rules` (o app grava em `price_audit_logs` desde a primeira mutação).
+4. `flutter pub get`
+5. `flutter run`
 
 ## Repositório
 
