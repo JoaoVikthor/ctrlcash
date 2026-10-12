@@ -24,8 +24,8 @@ String _groupThousands(String intPart) {
 }
 
 String formatCurrency(double value) {
-  final sign = value < 0 ? '-' : '';
-  return '$sign R\$ ${_fmt(value)}';
+  final sign = value < 0 ? '- ' : '';
+  return '${sign}R\$ ${_fmt(value)}';
 }
 
 String formatCurrencyAbs(double value) => 'R\$ ${_fmt(value)}';

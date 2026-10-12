@@ -144,7 +144,8 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
             _field(_priceController, 'Preço de compra (R\$)',
                 Icons.attach_money,
                 keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true)),
+                    const TextInputType.numberWithOptions(decimal: true),
+                onChanged: (_) => setState(() {})),
             const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,7 +155,8 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                     child: _field(_qtyController, 'Qtd. da embalagem',
                         Icons.scale_outlined,
                         keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true))),
+                            const TextInputType.numberWithOptions(decimal: true),
+                        onChanged: (_) => setState(() {}))),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
@@ -172,10 +174,12 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
   }
 
   Widget _field(TextEditingController c, String label, IconData icon,
-      {TextInputType keyboardType = TextInputType.text}) {
+      {TextInputType keyboardType = TextInputType.text,
+      ValueChanged<String>? onChanged}) {
     return TextField(
       controller: c,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,

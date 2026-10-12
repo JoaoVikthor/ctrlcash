@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:provider/provider.dart';
 
@@ -23,7 +22,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _isLoadingGoogle = false;
-  bool _isLoadingFacebook = false;
   bool _obscurePassword = true;
 
   @override
@@ -33,8 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  bool get _anyLoading =>
-      _isLoading || _isLoadingGoogle || _isLoadingFacebook;
+  bool get _anyLoading => _isLoading || _isLoadingGoogle;
 
   Future<void> _login() async {
     final String email = _emailController.text.trim();
@@ -51,7 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
             email: email,
             password: password,
           );
-      _navegarParaDashboard();
     } on AuthException catch (e) {
       _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
@@ -70,7 +66,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user == null) {
         return; // cancelado pelo usuario
       }
-      _navegarParaDashboard();
     } on AuthException catch (e) {
       _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
@@ -82,39 +77,89 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _loginComFacebook() async {
-    setState(() => _isLoadingFacebook = true);
+  Future<void> _esqueceuSenha() async {
+    final emailController = TextEditingController();
+    final auth = context.read<AuthService>();
+
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _colorCard,
+        title: const Text(
+          'Recuperar senha',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            labelText: 'E-mail',
+            labelStyle: const TextStyle(color: Colors.grey),
+            prefixIcon: const Icon(
+              Icons.mail_outline,
+              color: _colorGold,
+              size: 20,
+            ),
+            filled: true,
+            fillColor: _colorBackground,
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide:
+                  BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _colorGold, width: 1.5),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: _colorGold),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, emailController.text.trim()),
+            child: const Text(
+              'Enviar',
+              style: TextStyle(
+                color: _colorGreenPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    emailController.dispose();
+
+    if (email == null || !mounted) return;
+    if (email.isEmpty) {
+      _mostrarErro('Informe o e-mail cadastrado.');
+      return;
+    }
+
     try {
-      final LoginResult result = await FacebookAuth.instance.login();
-      if (result.status == LoginStatus.success) {
-        final OAuthCredential credential =
-            FacebookAuthProvider.credential(result.accessToken!.token);
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        _navegarParaDashboard();
-      } else {
-        _mostrarErro('Login cancelado ou mal sucedido.');
-      }
+      await auth.sendPasswordResetEmail(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('E-mail de recuperação enviado!'),
+          backgroundColor: _colorGreenPrimary,
+        ),
+      );
+    } on AuthException catch (e) {
+      _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
       _mostrarErro(_mapFirebaseError(e));
     } catch (_) {
-      _mostrarErro('Ocorreu um erro ao entrar com o Facebook.');
-    } finally {
-      if (mounted) setState(() => _isLoadingFacebook = false);
+      _mostrarErro('Ocorreu um erro ao enviar o e-mail de recuperação.');
     }
-  }
-
-  void _esqueceuSenha() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recuperação de senha em breve.'),
-        backgroundColor: _colorGreenPrimary,
-      ),
-    );
-  }
-
-  void _navegarParaDashboard() {
-    if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/dashboard');
   }
 
   void _irParaCadastro() {
@@ -237,14 +282,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     isLoading: _isLoadingGoogle,
                     onTap: _anyLoading ? () {} : _loginComGoogle,
                     tooltip: 'Entrar com Google',
-                  ),
-                  const SizedBox(width: 24),
-                  _socialButton(
-                    icon: FontAwesomeIcons.facebookF,
-                    color: const Color(0xFF1877F2),
-                    isLoading: _isLoadingFacebook,
-                    onTap: _anyLoading ? () {} : _loginComFacebook,
-                    tooltip: 'Entrar com Facebook',
                   ),
                 ],
               ),

@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../services/auth_service.dart';
 import '../../widgets/app_branded_header.dart';
 
-class SecurityScreen extends StatelessWidget {
+class SecurityScreen extends StatefulWidget {
   const SecurityScreen({super.key});
 
+  @override
+  State<SecurityScreen> createState() => _SecurityScreenState();
+}
+
+class _SecurityScreenState extends State<SecurityScreen> {
   static const Color _colorBackground = Color(0xFF0D1E16);
   static const Color _colorGreenPrimary = Color(0xFF165A41);
   static const Color _colorGold = Color(0xFFB89775);
@@ -27,27 +34,7 @@ class SecurityScreen extends StatelessWidget {
           const Text('Gerencie como você protege sua conta.',
               style: TextStyle(color: Colors.grey, fontSize: 13)),
           const SizedBox(height: 20),
-          _tile(Icons.lock_outline, 'Alterar senha', () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Recuperação de senha em breve.'),
-                  backgroundColor: _colorGold),
-            );
-          }),
-          _tile(Icons.email_outlined, 'E-mail de recuperação', () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Configuração de e-mail em breve.'),
-                  backgroundColor: _colorGold),
-            );
-          }),
-          _tile(Icons.devices_outlined, 'Dispositivos conectados', () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Nenhum outro dispositivo conectado.'),
-                  backgroundColor: _colorGreenPrimary),
-            );
-          }),
+          _tile(Icons.lock_outline, 'Alterar senha', _showChangePasswordDialog),
           const SizedBox(height: 24),
           const Text('Privacidade',
               style: TextStyle(
@@ -84,6 +71,168 @@ class SecurityScreen extends StatelessWidget {
     );
   }
 
+  void _toast(String msg, {Color color = Colors.red}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: color));
+  }
+
+  /// Diálogo para alterar a senha: reautentica com a senha atual e troca.
+  Future<void> _showChangePasswordDialog() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    bool hideCurrent = true;
+    bool hideNew = true;
+    bool loading = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: _colorCard,
+            title: const Text('Alterar senha',
+                style: TextStyle(color: Colors.white)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentCtrl,
+                  obscureText: hideCurrent,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Senha atual',
+                    labelStyle: const TextStyle(color: Colors.grey),
+                    prefixIcon: const Icon(Icons.lock_outline,
+                        color: _colorGold, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                          hideCurrent
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: Colors.grey,
+                          size: 20),
+                      onPressed: () =>
+                          setDialogState(() => hideCurrent = !hideCurrent),
+                    ),
+                    filled: true,
+                    fillColor: _colorBackground,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: _colorGold, width: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: newCtrl,
+                  obscureText: hideNew,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Nova senha (mín. 6 caracteres)',
+                    labelStyle: const TextStyle(color: Colors.grey),
+                    prefixIcon: const Icon(Icons.lock_reset_outlined,
+                        color: _colorGold, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                          hideNew
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: Colors.grey,
+                          size: 20),
+                      onPressed: () =>
+                          setDialogState(() => hideNew = !hideNew),
+                    ),
+                    filled: true,
+                    fillColor: _colorBackground,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: _colorGold, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: loading ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: _colorGold)),
+              ),
+              TextButton(
+                onPressed: loading
+                    ? null
+                    : () async {
+                        final current = currentCtrl.text.trim();
+                        final newPass = newCtrl.text;
+                        if (current.isEmpty || newPass.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'Preencha a senha atual e a nova senha.'),
+                                backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+                        if (newPass.length < 6) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                                content: Text(
+                                    'A nova senha deve ter ao menos 6 caracteres.'),
+                                backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+                        setDialogState(() => loading = true);
+                        try {
+                          await context.read<AuthService>().changePassword(
+                                currentPassword: current,
+                                newPassword: newPass,
+                              );
+                          if (!ctx.mounted) return;
+                          Navigator.pop(ctx);
+                          if (!mounted) return;
+                          _toast('Senha alterada com sucesso!',
+                              color: _colorGreenPrimary);
+                        } on AuthException catch (e) {
+                          if (!ctx.mounted) return;
+                          setDialogState(() => loading = false);
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                                content: Text(e.message),
+                                backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                child: loading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            color: _colorGold, strokeWidth: 2))
+                    : const Text('Salvar',
+                        style: TextStyle(color: _colorGreenPrimary)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    currentCtrl.dispose();
+    newCtrl.dispose();
+  }
+
   Future<void> _confirmDeleteAccount(BuildContext context) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -106,11 +255,118 @@ class SecurityScreen extends StatelessWidget {
       ),
     );
     if (ok == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Exclusão de conta em breve.'),
-            backgroundColor: _colorGold),
-      );
+      await _showDeletePasswordDialog();
     }
+  }
+
+  /// Diálogo único de reautenticação: pede a senha e exclui a conta.
+  Future<void> _showDeletePasswordDialog() async {
+    final passCtrl = TextEditingController();
+    bool hidePassword = true;
+    bool loading = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          return AlertDialog(
+            backgroundColor: _colorCard,
+            title: const Text('Confirmar exclusão',
+                style: TextStyle(color: Colors.white)),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                    'Digite sua senha para confirmar a exclusão da conta.',
+                    style: TextStyle(color: Colors.white70, fontSize: 13)),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: passCtrl,
+                  obscureText: hidePassword,
+                  style: const TextStyle(color: Colors.white),
+                  decoration: InputDecoration(
+                    labelText: 'Senha',
+                    labelStyle: const TextStyle(color: Colors.grey),
+                    prefixIcon: const Icon(Icons.lock_outline,
+                        color: _colorGold, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                          hidePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          color: Colors.grey,
+                          size: 20),
+                      onPressed: () => setDialogState(
+                          () => hidePassword = !hidePassword),
+                    ),
+                    filled: true,
+                    fillColor: _colorBackground,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: _colorGold, width: 1.5),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: loading ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancelar',
+                    style: TextStyle(color: _colorGold)),
+              ),
+              TextButton(
+                onPressed: loading
+                    ? null
+                    : () async {
+                        final pass = passCtrl.text;
+                        if (pass.isEmpty) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(
+                                content: Text('Digite sua senha.'),
+                                backgroundColor: Colors.red),
+                          );
+                          return;
+                        }
+                        setDialogState(() => loading = true);
+                        try {
+                          await context
+                              .read<AuthService>()
+                              .deleteAccount(password: pass);
+                          // A navegação para /login acontece automaticamente
+                          // pelo listener de authStateChanges no main.dart.
+                          if (ctx.mounted) Navigator.pop(ctx);
+                        } on AuthException catch (e) {
+                          if (!ctx.mounted) return;
+                          setDialogState(() => loading = false);
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            SnackBar(
+                                content: Text(e.message),
+                                backgroundColor: Colors.red),
+                          );
+                        }
+                      },
+                child: loading
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                            color: Colors.red, strokeWidth: 2))
+                    : const Text('Excluir conta',
+                        style: TextStyle(color: Colors.red)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    passCtrl.dispose();
   }
 }

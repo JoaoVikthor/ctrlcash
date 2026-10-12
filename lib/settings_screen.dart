@@ -49,9 +49,7 @@ class SettingsScreen extends StatelessWidget {
                     style: TextStyle(
                         color: Colors.red, fontWeight: FontWeight.bold)),
                 onTap: () async {
-                  final nav = Navigator.of(context);
                   await context.read<AuthService>().signOut();
-                  nav.pushNamedAndRemoveUntil('/login', (route) => false);
                 },
               )
             ],

@@ -33,7 +33,6 @@ dependencies:
   firebase_core: ^3.0.0
   firebase_auth: ^5.0.0
   google_sign_in: ^6.2.1
-  flutter_facebook_auth: ^6.1.0
   font_awesome_flutter: ^10.7.0 # Excelente para usarmos os ícones oficiais das marcas
   flutter_dotenv: ^5.2.0 # Carrega variaveis de ambiente (.env) - chaves do Firebase etc.
   provider: ^6.1.2 # Gerenciamento de estado (ChangeNotifierProvider / StreamProvider)

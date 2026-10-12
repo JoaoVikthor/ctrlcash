@@ -50,44 +50,85 @@ Future<void> main() async {
   runApp(const CashCtrlApp());
 }
 
-class CashCtrlApp extends StatelessWidget {
+class CashCtrlApp extends StatefulWidget {
   const CashCtrlApp({super.key});
+
+  @override
+  State<CashCtrlApp> createState() => _CashCtrlAppState();
+}
+
+class _CashCtrlAppState extends State<CashCtrlApp> {
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
+  late final AuthService _authService;
+  late final UserProvider _userProvider;
+  late final TransactionProvider _transactionProvider;
+  late final BudgetProvider _budgetProvider;
+  late final IngredientProvider _ingredientProvider;
+  late final ProductProvider _productProvider;
+
+  StreamSubscription<User?>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = AuthService();
+    _userProvider = UserProvider();
+
+    _transactionProvider = TransactionProvider();
+    _budgetProvider = BudgetProvider();
+    _ingredientProvider = IngredientProvider();
+    _productProvider = ProductProvider();
+
+    _transactionProvider.attach(_userProvider);
+    _budgetProvider.attach(_userProvider);
+    _ingredientProvider.attach(_userProvider);
+    _productProvider.attach(_userProvider);
+
+    _authSub = _authService.authStateChanges.listen((User? user) {
+      if (user == null) {
+        _userProvider.limpar();
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      } else {
+        _userProvider.setUsuario(user.uid);
+        _navigatorKey.currentState?.pushNamedAndRemoveUntil(
+          '/dashboard',
+          (route) => false,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _transactionProvider.dispose();
+    _budgetProvider.dispose();
+    _ingredientProvider.dispose();
+    _productProvider.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<AuthService>(
-          create: (_) => AuthService(),
-        ),
-        Provider<FirestoreService>(
-          create: (_) => FirestoreService(),
-        ),
-        Provider<StorageService>(
-          create: (_) => StorageService(),
-        ),
-        StreamProvider<User?>(
-          create: (context) =>
-              context.read<AuthService>().authStateChanges,
-          initialData: null,
-        ),
-        ChangeNotifierProvider<UserProvider>(
-          create: (_) => UserProvider(),
-        ),
-        ChangeNotifierProvider<TransactionProvider>(
-          create: (_) => TransactionProvider(),
-        ),
-        ChangeNotifierProvider<BudgetProvider>(
-          create: (_) => BudgetProvider(),
-        ),
-        ChangeNotifierProvider<IngredientProvider>(
-          create: (_) => IngredientProvider(),
-        ),
-        ChangeNotifierProvider<ProductProvider>(
-          create: (_) => ProductProvider(),
-        ),
+        Provider<AuthService>.value(value: _authService),
+        Provider<FirestoreService>(create: (_) => FirestoreService()),
+        Provider<StorageService>(create: (_) => StorageService()),
+        ChangeNotifierProvider<UserProvider>.value(value: _userProvider),
+        ChangeNotifierProvider<TransactionProvider>.value(
+            value: _transactionProvider),
+        ChangeNotifierProvider<BudgetProvider>.value(value: _budgetProvider),
+        ChangeNotifierProvider<IngredientProvider>.value(
+            value: _ingredientProvider),
+        ChangeNotifierProvider<ProductProvider>.value(value: _productProvider),
       ],
       child: MaterialApp(
+        navigatorKey: _navigatorKey,
         title: 'CashCtrl',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -102,15 +143,16 @@ class CashCtrlApp extends StatelessWidget {
           '/cadastro': (context) => const CadastroScreen(),
           '/dashboard': (context) => const HomeScreen(),
           '/budgets': (context) => const BudgetsScreen(),
-          '/budget-form': (context) =>
-              BudgetFormScreen(editing: ModalRoute.of(context)?.settings.arguments as Budget?),
+          '/budget-form': (context) => BudgetFormScreen(
+              editing: ModalRoute.of(context)?.settings.arguments as Budget?),
           '/expenses': (context) => const ExpensesScreen(),
-          '/transaction-form': (context) =>
-              TransactionFormScreen(editing: ModalRoute.of(context)?.settings.arguments as AppTransaction?),
+          '/transaction-form': (context) => TransactionFormScreen(
+              editing: ModalRoute.of(context)?.settings.arguments
+                  as AppTransaction?),
           '/reports': (context) => const ReportsScreen(),
           '/ingredients': (context) => const IngredientsScreen(),
-          '/ingredient-form': (context) =>
-              IngredientFormScreen(editing: ModalRoute.of(context)?.settings.arguments as Ingredient?),
+          '/ingredient-form': (context) => IngredientFormScreen(
+              editing: ModalRoute.of(context)?.settings.arguments as Ingredient?),
           '/products': (context) => const ProductsScreen(),
           '/product-form': (context) {
             final id = ModalRoute.of(context)?.settings.arguments as String?;
@@ -135,75 +177,22 @@ class CashCtrlApp extends StatelessWidget {
           '/settings/security': (context) => const SecurityScreen(),
           '/settings/help': (context) => const HelpScreen(),
         },
-        home: const AuthGate(),
+        home: const _InitialSplash(),
       ),
     );
   }
 }
 
-class AuthGate extends StatefulWidget {
-  const AuthGate({super.key});
-
-  @override
-  State<AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<AuthGate> {
-  StreamSubscription<User?>? _sub;
-  User? _user;
-  bool _waiting = true;
-  bool _linked = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final AuthService authService = context.read<AuthService>();
-    final UserProvider userProvider = context.read<UserProvider>();
-    final TransactionProvider txProvider = context.read<TransactionProvider>();
-    final BudgetProvider budgetProvider = context.read<BudgetProvider>();
-    final IngredientProvider ingredientProvider =
-        context.read<IngredientProvider>();
-    final ProductProvider productProvider = context.read<ProductProvider>();
-    if (!_linked) {
-      txProvider.attach(userProvider);
-      budgetProvider.attach(userProvider);
-      ingredientProvider.attach(userProvider);
-      productProvider.attach(userProvider);
-      _linked = true;
-    }
-    _sub = authService.authStateChanges.listen((User? user) {
-      if (user == null) {
-        userProvider.limpar();
-      } else {
-        userProvider.setUsuario(user.uid);
-      }
-      if (mounted) setState(() => _user = user);
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _waiting) setState(() => _waiting = false);
-    });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
+class _InitialSplash extends StatelessWidget {
+  const _InitialSplash();
 
   @override
   Widget build(BuildContext context) {
-    if (_waiting) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF0D1E16),
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFB89775)),
-        ),
-      );
-    }
-
-    if (_user == null) {
-      return const LoginScreen();
-    }
-    return const HomeScreen();
+    return const Scaffold(
+      backgroundColor: Color(0xFF0D1E16),
+      body: Center(
+        child: CircularProgressIndicator(color: Color(0xFFB89775)),
+      ),
+    );
   }
 }

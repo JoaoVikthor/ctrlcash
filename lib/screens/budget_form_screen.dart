@@ -200,6 +200,7 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
   Widget _buildLimitField() {
     return TextField(
       controller: _limitController,
+      onChanged: (_) => setState(() {}),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(

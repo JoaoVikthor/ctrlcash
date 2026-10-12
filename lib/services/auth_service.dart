@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../models/app_user.dart';
@@ -15,7 +17,11 @@ class AuthService {
     GoogleSignIn? googleSignIn,
     FirestoreService? firestore,
   })  : _auth = auth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn(),
+        _googleSignIn = googleSignIn ??
+            GoogleSignIn(
+              clientId:
+                  kIsWeb ? dotenv.env['GOOGLE_SIGN_IN_CLIENT_ID'] : null,
+            ),
         _firestore = firestore ?? FirestoreService();
 
   final FirebaseAuth _auth;
@@ -94,6 +100,60 @@ class AuthService {
     }
   }
 
+  /// Envia e-mail de recuperacao de senha para o [email] cadastrado.
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(friendlyAuthError(e));
+    }
+  }
+
+  /// Altera a senha do usuario logado apos reautenticar com a senha atual.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      await _reauthenticate(currentPassword);
+      final user = _auth.currentUser;
+      if (user == null) {
+        throw AuthException('Nenhum usuário conectado.');
+      }
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_changePasswordError(e));
+    }
+  }
+
+  /// Exclui a conta do usuario logado apos reautenticar com a senha.
+  Future<void> deleteAccount({required String password}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw AuthException('Nenhum usuário conectado.');
+    }
+    try {
+      await _reauthenticate(password);
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_deleteAccountError(e));
+    }
+  }
+
+  /// Reautentica o usuario atual com e-mail/senha (exigido pelo Firebase
+  /// antes de operacoes sensiveis como alterar ou excluir a conta).
+  Future<void> _reauthenticate(String password) async {
+    final user = _auth.currentUser;
+    if (user == null || user.email == null) {
+      throw AuthException('Nenhum usuário conectado.');
+    }
+    final credential = EmailAuthProvider.credential(
+      email: user.email!,
+      password: password,
+    );
+    await user.reauthenticateWithCredential(credential);
+  }
+
   /// Encerra a sessao atual (Firebase + Google).
   Future<void> signOut() async {
     await _auth.signOut();
@@ -124,6 +184,32 @@ class AuthService {
         return 'Operação não permitida.';
       default:
         return e.message ?? 'Ocorreu um erro inesperado.';
+    }
+  }
+
+  /// Mapeia erros do FirebaseAuth do fluxo de alteracao de senha.
+  static String _changePasswordError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'wrong-password':
+        return 'Senha atual incorreta.';
+      case 'weak-password':
+        return 'A nova senha deve ter ao menos 6 caracteres.';
+      case 'requires-recent-login':
+        return 'Por segurança, faça login novamente antes de alterar a senha.';
+      default:
+        return friendlyAuthError(e);
+    }
+  }
+
+  /// Mapeia erros do FirebaseAuth do fluxo de exclusao de conta.
+  static String _deleteAccountError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'wrong-password':
+        return 'Senha incorreta.';
+      case 'requires-recent-login':
+        return 'Por segurança, faça login novamente antes de excluir a conta.';
+      default:
+        return friendlyAuthError(e);
     }
   }
 }

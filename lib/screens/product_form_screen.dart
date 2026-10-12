@@ -250,7 +250,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 _field(_saleController, 'Preço de venda (R\$)',
                     Icons.point_of_sale_outlined,
                     keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true)),
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => setState(() {})),
                 const SizedBox(height: 16),
                 _buildPhotoAndBarcode(),
                 const SizedBox(height: 8),
@@ -277,13 +278,15 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                         child: _field(_laborController, 'Mão de obra',
                             Icons.engineering_outlined,
                             keyboardType: const TextInputType
-                                .numberWithOptions(decimal: true))),
+                                .numberWithOptions(decimal: true),
+                            onChanged: (_) => setState(() {}))),
                     const SizedBox(width: 12),
                     Expanded(
                         child: _field(_packController, 'Embalagem',
                             Icons.inventory_outlined,
                             keyboardType: const TextInputType
-                                .numberWithOptions(decimal: true))),
+                                .numberWithOptions(decimal: true),
+                            onChanged: (_) => setState(() {}))),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -534,6 +537,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             width: 72,
             child: TextField(
               controller: _qtyControllers[index],
+              onChanged: (_) => setState(() {}),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
               textAlign: TextAlign.center,
@@ -661,11 +665,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   }
 
   Widget _field(TextEditingController c, String label, IconData icon,
-      {TextInputType keyboardType = TextInputType.text, int maxLines = 1}) {
+      {TextInputType keyboardType = TextInputType.text, int maxLines = 1,
+      ValueChanged<String>? onChanged}) {
     return TextField(
       controller: c,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      onChanged: onChanged,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,

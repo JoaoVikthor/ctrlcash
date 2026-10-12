@@ -179,7 +179,6 @@ class _CadastroScreenState extends State<CadastroScreen> {
           backgroundColor: _colorGreenPrimary,
         ),
       );
-      Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (r) => false);
     } on AuthException catch (e) {
       _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
