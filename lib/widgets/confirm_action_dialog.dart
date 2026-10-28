@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+
 class ConfirmActionDialog extends StatelessWidget {
   final String title;
   final String body;
@@ -33,13 +38,15 @@ class ConfirmActionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final noteText = note;
     return AlertDialog(
-      backgroundColor: const Color(0xFF142A20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      backgroundColor: AppColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
       title: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 18,
+        style: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: AppTypography.title,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -49,24 +56,24 @@ class ConfirmActionDialog extends StatelessWidget {
         children: [
           Text(
             body,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+            style: TextStyle(
+              color: AppColors.textPrimary.withValues(alpha: 0.7),
+              fontSize: AppTypography.body,
             ),
           ),
           if (noteText != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.m),
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(AppSpacing.m),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(8),
+                color: AppColors.textPrimary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Text(
                 noteText,
-                style: const TextStyle(
-                  color: Color(0xFF7A8B83),
-                  fontSize: 12,
+                style: TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.secondary,
                 ),
               ),
             ),
@@ -76,20 +83,20 @@ class ConfirmActionDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text(
+          child: Text(
             'Cancelar',
             style: TextStyle(
-              color: Color(0xFFB89775),
+              color: AppColors.gold,
               fontWeight: FontWeight.bold,
             ),
           ),
         ),
         TextButton(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text(
+          child: Text(
             'Confirmar',
             style: TextStyle(
-              color: Color(0xFF165A41),
+              color: AppColors.danger,
               fontWeight: FontWeight.bold,
             ),
           ),

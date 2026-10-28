@@ -5,87 +5,82 @@ import '../models/budget.dart';
 import '../models/transaction.dart';
 import '../providers/budget_provider.dart';
 import '../providers/transaction_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/categories.dart';
 import '../utils/format.dart';
 import '../widgets/app_branded_header.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_toast.dart';
+import '../widgets/error_state.dart';
 
 class BudgetsScreen extends StatelessWidget {
   const BudgetsScreen({super.key});
 
-  static const colorBackground = Color(0xFF0D1E16);
-  static const colorGold = Color(0xFFB89775);
-  static const colorCard = Color(0xFF142A20);
-  static const colorGreenPrimary = Color(0xFF165A41);
-  static const colorTextSec = Color(0xFF7A8B83);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: colorBackground,
+      backgroundColor: AppColors.background,
       drawer: const AppDrawer(currentRoute: 'budgets'),
       appBar: const AppBrandedHeader(title: 'Orçamentos'),
       body: Consumer2<BudgetProvider, TransactionProvider>(
         builder: (context, bp, tx, _) {
           if (bp.loading) {
             return const Center(
-                child: CircularProgressIndicator(color: colorGold));
+              child: CircularProgressIndicator(color: AppColors.gold),
+            );
           }
           if (bp.error != null) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.cloud_off, color: colorTextSec, size: 48),
-                  const SizedBox(height: 8),
-                  const Text('Não foi possível carregar os orçamentos.',
-                      style: TextStyle(color: Colors.white54),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 4),
-                  const Text('Verifique sua conexão e tente novamente.',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
-                      textAlign: TextAlign.center),
-                ],
-              ),
+            return const ErrorState(
+              message: 'Não foi possível carregar os orçamentos.\n'
+                  'Verifique sua conexão e tente novamente.',
             );
           }
           final spentByCat = _spentByCategory(tx);
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Text('Seus Limites Mensais',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Text(
-                    'Acompanhe quanto já gastou de cada categoria neste mês.',
-                    style: TextStyle(color: colorTextSec, fontSize: 13)),
-                const SizedBox(height: 20),
+                Text(
+                  'Limites do negócio',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.title,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Acompanhe quanto o negócio já gastou em cada categoria neste mês.',
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.body,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xl),
                 if (bp.budgets.isEmpty) _buildEmpty(context),
                 for (final b in bp.budgets)
                   _buildBudgetProgress(
-                      context, b, spentByCat[b.category] ?? 0),
-                const SizedBox(height: 24),
+                    context,
+                    b,
+                    spentByCat[b.category] ?? 0,
+                  ),
+                const SizedBox(height: AppSpacing.xxl),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () =>
                         Navigator.pushNamed(context, '/budget-form'),
                     icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text('Novo Orçamento',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: colorGreenPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
+                    label: const Text(
+                      'Novo Orçamento',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -111,36 +106,58 @@ class BudgetsScreen extends StatelessWidget {
 
   Widget _buildEmpty(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(28),
-      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(AppSpacing.xxxl),
+      margin: const EdgeInsets.only(bottom: AppSpacing.xl),
       decoration: BoxDecoration(
-          color: colorCard, borderRadius: BorderRadius.circular(15)),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
       child: Column(
         children: [
-          const Icon(Icons.account_balance_outlined,
-              color: colorTextSec, size: 40),
-          const SizedBox(height: 12),
-          const Text('Nenhum orçamento criado',
-              style: TextStyle(color: Colors.white)),
-          const SizedBox(height: 4),
-          const Text('Defina limites para controlar seus gastos.',
-              style: TextStyle(color: colorTextSec, fontSize: 12)),
+          const Icon(
+            Icons.account_balance_outlined,
+            color: AppColors.textSec,
+            size: 40,
+          ),
+          const SizedBox(height: AppSpacing.m),
+          Text(
+            'Crie seu primeiro orçamento',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: AppTypography.section,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Defina limites por categoria e acompanhe os custos do negócio.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildBudgetProgress(
-      BuildContext context, Budget b, double spent) {
+    BuildContext context,
+    Budget b,
+    double spent,
+  ) {
     final percent = b.limit > 0 ? (spent / b.limit).clamp(0.0, 1.0) : 0.0;
     final isOver = spent > b.limit;
     final remaining = b.limit - spent;
     final cat = findCategory(b.category);
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
+      margin: const EdgeInsets.only(bottom: AppSpacing.l),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-          color: colorCard, borderRadius: BorderRadius.circular(12)),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -150,70 +167,96 @@ class BudgetsScreen extends StatelessWidget {
               Row(
                 children: [
                   Icon(cat.icon, color: cat.color, size: 18),
-                  const SizedBox(width: 8),
-                  Text(b.category,
-                      style: const TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: AppSpacing.s),
+                  Text(
+                    b.category,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               PopupMenuButton<String>(
-                color: const Color(0xFF142A20),
-                icon: const Icon(Icons.more_vert,
-                    color: Colors.white54, size: 18),
+                color: AppColors.card,
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: AppColors.textSec,
+                  size: 18,
+                ),
                 onSelected: (v) async {
                   if (v == 'edit') {
                     if (!context.mounted) return;
-                    Navigator.pushNamed(context, '/budget-form',
-                        arguments: b);
+                    Navigator.pushNamed(
+                      context,
+                      '/budget-form',
+                      arguments: b,
+                    );
                   } else if (v == 'delete') {
                     await context.read<BudgetProvider>().deleteBudget(b.id);
                     if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Orçamento excluído.'),
-                          backgroundColor: colorGold),
-                    );
+                    AppToast.success(context, 'Orçamento excluído.');
                   }
                 },
                 itemBuilder: (_) => [
                   const PopupMenuItem(
-                      value: 'edit',
-                      child: Text('Editar',
-                          style: TextStyle(color: Colors.white))),
+                    value: 'edit',
+                    child: Text(
+                      'Editar',
+                      style: TextStyle(color: AppColors.textPrimary),
+                    ),
+                  ),
                   const PopupMenuItem(
-                      value: 'delete',
-                      child: Text('Excluir',
-                          style: TextStyle(color: Colors.red))),
+                    value: 'delete',
+                    child: Text(
+                      'Excluir',
+                      style: TextStyle(color: AppColors.danger),
+                    ),
+                  ),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.m),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                  '${formatCurrencyAbs(spent)} / ${formatCurrencyAbs(b.limit)}',
-                  style: TextStyle(
-                      color: isOver ? Colors.red : colorGold, fontSize: 13)),
-              Text(isOver ? 'Ultrapassou' : 'Falta ${formatCurrencyAbs(remaining)}',
-                  style: TextStyle(
-                      color: isOver ? Colors.red : Colors.green, fontSize: 12)),
+                '${formatCurrencyAbs(spent)} / ${formatCurrencyAbs(b.limit)}',
+                style: TextStyle(
+                  color: isOver ? AppColors.danger : AppColors.gold,
+                  fontSize: AppTypography.body,
+                ),
+              ),
+              Text(
+                isOver
+                    ? 'Ultrapassou'
+                    : 'Falta ${formatCurrencyAbs(remaining)}',
+                style: TextStyle(
+                  color: isOver ? AppColors.danger : AppColors.success,
+                  fontSize: AppTypography.secondary,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.m),
           ClipRRect(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
             child: LinearProgressIndicator(
               value: percent,
-              color: isOver ? Colors.red : cat.color,
-              backgroundColor: colorBackground,
-              minHeight: 10,
+              color: isOver ? AppColors.danger : cat.color,
+              backgroundColor: AppColors.background,
+              minHeight: 8,
             ),
           ),
-          const SizedBox(height: 6),
-          Text('${(percent * 100).toStringAsFixed(0)}% usado',
-              style: const TextStyle(color: colorTextSec, fontSize: 11)),
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            '${(percent * 100).toStringAsFixed(0)}% usado',
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
+            ),
+          ),
         ],
       ),
     );

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../utils/recurrence.dart';
+
 enum TransactionType { receita, despesa }
 
 extension TransactionTypeExt on TransactionType {
@@ -68,6 +70,9 @@ class AppTransaction {
   final DateTime date;
   final PaymentMethod paymentMethod;
   final bool recurring;
+  final String? recurrence;
+  final String? generatedFrom;
+  final List<String> skippedOccurrences;
   final String? notes;
   final String? receiptUrl;
   final String? budgetId;
@@ -81,6 +86,9 @@ class AppTransaction {
     required this.date,
     required this.paymentMethod,
     this.recurring = false,
+    this.recurrence,
+    this.generatedFrom,
+    this.skippedOccurrences = const [],
     this.notes,
     this.receiptUrl,
     this.budgetId,
@@ -99,6 +107,9 @@ class AppTransaction {
     required DateTime date,
     required PaymentMethod paymentMethod,
     bool recurring = false,
+    String? recurrence,
+    String? generatedFrom,
+    List<String> skippedOccurrences = const [],
     String? notes,
     String? receiptUrl,
     String? budgetId,
@@ -107,6 +118,7 @@ class AppTransaction {
       throw ArgumentError(
           'O valor da transação deve ser maior que zero (RN01).');
     }
+    final effectiveRecurring = recurrence != null || recurring;
     return AppTransaction(
       id: id,
       type: type,
@@ -115,7 +127,10 @@ class AppTransaction {
       amount: amount,
       date: date,
       paymentMethod: paymentMethod,
-      recurring: recurring,
+      recurring: effectiveRecurring,
+      recurrence: recurrence,
+      generatedFrom: generatedFrom,
+      skippedOccurrences: skippedOccurrences,
       notes: notes,
       receiptUrl: receiptUrl,
       budgetId: budgetId,
@@ -134,6 +149,13 @@ class AppTransaction {
     } else {
       date = DateTime.now();
     }
+    final recurring = (m['recurring'] ?? false) as bool;
+    final recurrence = m['recurrence'] as String?;
+    final rawSkipped = m['skippedOccurrences'];
+    final skippedOccurrences = rawSkipped is List
+        ? rawSkipped.whereType<String>().toList()
+        : const <String>[];
+
     return AppTransaction(
       id: id,
       type: TransactionTypeExt.fromFirestore((m['type'] ?? 'despesa') as String),
@@ -143,7 +165,10 @@ class AppTransaction {
       date: date,
       paymentMethod:
           PaymentMethodExt.fromFirestore((m['paymentMethod'] ?? 'outro') as String),
-      recurring: (m['recurring'] ?? false) as bool,
+      recurring: recurrence != null || recurring,
+      recurrence: recurrence,
+      generatedFrom: m['generatedFrom'] as String?,
+      skippedOccurrences: skippedOccurrences,
       notes: m['notes'] as String?,
       receiptUrl: m['receiptUrl'] as String?,
       budgetId: m['budgetId'] as String?,
@@ -158,10 +183,25 @@ class AppTransaction {
         'date': date.toIso8601String(),
         'paymentMethod': paymentMethod.firestoreValue,
         'recurring': recurring,
+        'recurrence': recurrence,
+        'generatedFrom': generatedFrom,
+        'skippedOccurrences': skippedOccurrences,
         'notes': notes,
         'receiptUrl': receiptUrl,
         'budgetId': budgetId,
       };
+
+  String? get effectiveRecurrence => recurrence ?? (recurring ? 'mensal' : null);
+
+  DateTime? nextOccurrence(DateTime after) {
+    final frequency = effectiveRecurrence;
+    if (frequency == null) return null;
+    return nextOccurrenceAfter(
+      startDate: date,
+      frequency: frequency,
+      after: after,
+    );
+  }
 
   AppTransaction copyWith({
     TransactionType? type,
@@ -171,6 +211,9 @@ class AppTransaction {
     DateTime? date,
     PaymentMethod? paymentMethod,
     bool? recurring,
+    String? recurrence,
+    String? generatedFrom,
+    List<String>? skippedOccurrences,
     String? notes,
     String? receiptUrl,
     String? budgetId,
@@ -184,6 +227,9 @@ class AppTransaction {
         date: date ?? this.date,
         paymentMethod: paymentMethod ?? this.paymentMethod,
         recurring: recurring ?? this.recurring,
+        recurrence: recurrence ?? this.recurrence,
+        generatedFrom: generatedFrom ?? this.generatedFrom,
+        skippedOccurrences: skippedOccurrences ?? this.skippedOccurrences,
         notes: notes ?? this.notes,
         receiptUrl: receiptUrl ?? this.receiptUrl,
         budgetId: budgetId ?? this.budgetId,

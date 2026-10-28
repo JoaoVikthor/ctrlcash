@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'ingredient_offer.dart';
 
-/// Unidades de medida suportadas para os insumos.
+/// Unidades de medida suportadas para os produtos.
 enum IngredientUnit { grama, kilo, litro, mililitro, unidade, pacote }
 
 extension IngredientUnitExt on IngredientUnit {
@@ -34,7 +34,7 @@ extension IngredientUnitExt on IngredientUnit {
       };
 }
 
-/// Insumo comprado para fabricar produtos.
+/// Produto comprado para fabricar fichas tecnicas.
 ///
 /// O usuario informa o [purchasePrice] (preco pago) e a [packageQuantity]
 /// (quantidade da embalagem). O preco por unidade base e calculado em

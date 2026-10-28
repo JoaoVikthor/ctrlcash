@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/offer_comparator.dart';
 import '../utils/product_calculator.dart';
@@ -16,18 +20,13 @@ class EconomySummaryCard extends StatelessWidget {
     required this.onViewOffers,
   });
 
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   bool get _hasAnyOffers =>
       ticket.lines.any((l) =>
           !l.missing && l.ingredient != null && l.ingredient!.offers.isNotEmpty);
 
   TicketLineSaving? get _topSaving {
     if (scenario == null || scenario!.lines.isEmpty) return null;
-    return scenario!.lines
-        .reduce((a, b) => a.saving > b.saving ? a : b);
+    return scenario!.lines.reduce((a, b) => a.saving > b.saving ? a : b);
   }
 
   @override
@@ -50,49 +49,58 @@ class EconomySummaryCard extends StatelessWidget {
   Widget _buildEconomyCase(BuildContext context) {
     final top = _topSaving!;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: Colors.green.withValues(alpha: 0.35), width: 1)),
+        color: AppColors.success.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: AppColors.success.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.trending_down, color: Colors.green, size: 18),
-              const SizedBox(width: 8),
+              const Icon(Icons.trending_down, color: AppColors.success, size: 18),
+              const SizedBox(width: AppSpacing.s),
               Text(
                 'Melhor fornecedor possível',
                 style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold),
+                  color: AppColors.success,
+                  fontSize: AppTypography.body,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.s),
           Text(
             '−${formatCurrencyAbs(scenario!.totalSaving)} no custo dos ingredientes',
-            style: const TextStyle(
-                color: Colors.green,
-                fontSize: 28,
-                fontWeight: FontWeight.bold),
+            style: AppTypography.number(
+              color: AppColors.success,
+              fontSize: AppTypography.hero,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 8),
-          const Text(
+          const SizedBox(height: AppSpacing.s),
+          Text(
             'Nada foi alterado no ticket.',
-            style: TextStyle(color: _colorTextSec, fontSize: 12),
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.m),
           OutlinedButton(
             onPressed: () => onViewOffers(top.ingredientId),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.green,
-              side: const BorderSide(color: Colors.green),
+              foregroundColor: AppColors.success,
+              side: const BorderSide(color: AppColors.success),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
             child: Text('Ver ofertas de ${top.ingredientName}'),
           ),
@@ -108,31 +116,37 @@ class EconomySummaryCard extends StatelessWidget {
         .fold<int>(0, (sum, l) => sum + l.ingredient!.offers.length);
     final fewOffers = offerCount <= 1;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-          color: _colorCard, borderRadius: BorderRadius.circular(12)),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 18),
-              const SizedBox(width: 8),
-              const Text(
+              const Icon(Icons.check_circle, color: AppColors.success, size: 18),
+              const SizedBox(width: AppSpacing.s),
+              Text(
                 'Fornecedores já estáveis',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold),
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.body,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.s),
           Text(
             fewOffers
                 ? 'As ofertas ativas deste produto já são as melhores entre as cadastradas. Poucas ofertas cadastradas — cadastre mais para comparar.'
                 : 'As ofertas ativas deste produto já são as melhores entre as cadastradas.',
-            style: const TextStyle(color: _colorTextSec, fontSize: 12),
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary,
+            ),
           ),
         ],
       ),
@@ -143,50 +157,59 @@ class EconomySummaryCard extends StatelessWidget {
     final top = _topSaving;
     final profit = scenario!.simulatedProfit;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-          color: Colors.red.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: Colors.red.withValues(alpha: 0.35), width: 1)),
+        color: AppColors.danger.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(
+          color: AppColors.danger.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.warning_amber, color: Colors.red, size: 18),
-              const SizedBox(width: 8),
-              const Text(
+              const Icon(Icons.warning_amber, color: AppColors.danger, size: 18),
+              const SizedBox(width: AppSpacing.s),
+              Text(
                 'Ainda dá prejuízo com o melhor preço',
                 style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold),
+                  color: AppColors.danger,
+                  fontSize: AppTypography.body,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.s),
           Text(
             '−${formatCurrencyAbs(profit)} ainda de prejuízo',
-            style: const TextStyle(
-                color: Colors.red,
-                fontSize: 24,
-                fontWeight: FontWeight.bold),
+            style: AppTypography.number(
+              color: AppColors.danger,
+              fontSize: AppTypography.title,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Mesmo usando o melhor fornecedor de cada insumo, o ticket ainda fica no vermelho. Considere revisar o preço de venda ou os custos fixos.',
-            style: TextStyle(color: _colorTextSec, fontSize: 12),
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            'Mesmo usando o melhor fornecedor de cada produto, o ticket ainda fica no vermelho. Considere revisar o preço de venda ou os custos fixos.',
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary,
+            ),
           ),
           if (top != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.m),
             OutlinedButton(
               onPressed: () => onViewOffers(top.ingredientId),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red,
-                side: const BorderSide(color: Colors.red),
+                foregroundColor: AppColors.danger,
+                side: const BorderSide(color: AppColors.danger),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
               ),
               child: const Text('Ver ofertas'),
             ),
@@ -198,40 +221,47 @@ class EconomySummaryCard extends StatelessWidget {
 
   Widget _buildNoDataCase(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-          color: _colorCard, borderRadius: BorderRadius.circular(12)),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.storefront_outlined, color: _colorGold, size: 18),
-              SizedBox(width: 8),
+              const Icon(Icons.storefront_outlined, color: AppColors.gold, size: 18),
+              const SizedBox(width: AppSpacing.s),
               Text(
                 'Sem dados de fornecedores',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold),
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.body,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Cadastre ofertas nos insumos para descobrir se há economia possível.',
-            style: TextStyle(color: _colorTextSec, fontSize: 12),
+          const SizedBox(height: AppSpacing.s),
+          Text(
+            'Cadastre ofertas nos produtos para descobrir se há economia possível.',
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary,
+            ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.m),
           OutlinedButton(
             onPressed: () => onViewOffers(''),
             style: OutlinedButton.styleFrom(
-              foregroundColor: _colorGold,
-              side: const BorderSide(color: _colorGold),
+              foregroundColor: AppColors.gold,
+              side: const BorderSide(color: AppColors.gold),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+              ),
             ),
-            child: const Text('Gerenciar insumos'),
+            child: const Text('Gerenciar produtos'),
           ),
         ],
       ),

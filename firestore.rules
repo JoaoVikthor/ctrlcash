@@ -16,8 +16,12 @@ service cloud.firestore {
       // --- Subcolecoes privadas por usuario (RN02) ---
 
       // Movimentacoes (receitas e despesas)
+      // RN01: valor deve ser numero e maior que zero.
       match /transactions/{txId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && request.resource.data.amount is number
+          && request.resource.data.amount > 0;
       }
 
       // Orcamentos mensais por categoria
@@ -26,8 +30,14 @@ service cloud.firestore {
       }
 
       // Parque de insumos (materiais comprados p/ fabricar produtos)
+      // RN01: purchasePrice >= 0 e packageQuantity > 0 quando presentes.
       match /ingredients/{ingredientId} {
-        allow read, write: if request.auth != null && request.auth.uid == uid;
+        allow read, delete: if request.auth != null && request.auth.uid == uid;
+        allow create, update: if request.auth != null && request.auth.uid == uid
+          && (!('purchasePrice' in request.resource.data)
+              || (request.resource.data.purchasePrice is number && request.resource.data.purchasePrice >= 0))
+          && (!('packageQuantity' in request.resource.data)
+              || (request.resource.data.packageQuantity is number && request.resource.data.packageQuantity > 0));
       }
 
       // Produtos / fichas tecnicas (ticket)

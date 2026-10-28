@@ -39,6 +39,43 @@ mv documentacao/ctrlcash_sprint3_rt_v2.docx \
    documentacao/CTRLCASH_SPRINT3_PAINEL_COMPARACAO_FUTURO_RT.docx
 ```
 
+Arquivos do Sprint 6 (Fechamento/QA — o DOCX das Sprints 2–4 permanecem
+preservados, sem sobrescrita):
+
+| Etapa | Arquivo |
+|-------|---------|
+| Autoria (Markdown) | `documentacao/logs/sprint6/docs_sprint6_fechamento_qa_rt.md` |
+| HTML com estilos | `documentacao/logs/sprint6/ctrlcash_sprint6_fechamento_qa_rt.html` |
+| DOCX final | `documentacao/CTRLCASH_SPRINT6_FECHAMENTO_QA_RT.docx` |
+
+Arquivos do Sprint 7 (Fechamento Final — cobre Sprints 5, 6 e 7; 19 páginas):
+
+| Etapa | Arquivo |
+|-------|---------|
+| Autoria (Markdown) | `documentacao/logs/sprint7/docs_sprint7_fechamento_final_rt.md` |
+| HTML com estilos | `documentacao/logs/sprint7/ctrlcash_sprint7_fechamento_final_rt.html` |
+| DOCX final | `documentacao/CTRLCASH_SPRINT7_FECHAMENTO_FINAL_RT.docx` |
+
+Observações do Sprint 7:
+
+- Figuras 24–29 (capturas pendentes), continuando a numeração do Sprint 6;
+- Tabelas 1–6;
+- `docs/overview.md` foi atualizado na mesma entrega (vocabulário, categorias,
+  Excel, Relatórios unificados, scanner/barcode removido e dependências).
+
+Observações do Sprint 6:
+
+- Numeração de figuras continua a do Sprint 4: Figuras 21–23 (capturas pendentes).
+- Tabelas 1–6 (a Tabela 6 consolida QA + builds).
+- Rodapé com PAGE replicado do DOCX da Sprint 4 (extração de `word/footer1.xml`
+  e re-injeção via zipfile) — pgMar fica **inalterado** (o footer="567" do item
+  abaixo NÃO é necessário; a Sprint 4 validada usa `w:footer="0"`); inserir
+  apenas `<w:footerReference w:type="default" r:id="rIdFtr1"/>` logo após
+  `<w:sectPr>` e a `Relationship rIdFtr1` + `Override footer+xml`.
+- Seção 7 do RT ("Resultados de Build (Web/APK)") foi **fechada com os números
+  reais** (web 27,3 s → `build/web/`; APK 36,0 s → `app-release.apk` 75,1 MB,
+  assinatura de debug registrada como pendência de produção).
+
 Verificar antes: `soffice --version` (validado com LibreOffice 25.2.3.2).
 
 ### Pós-processamento obrigatório: rodapé com página

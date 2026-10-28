@@ -3,10 +3,19 @@ import 'package:provider/provider.dart';
 
 import '../models/transaction.dart';
 import '../providers/transaction_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/categories.dart';
 import '../utils/format.dart';
 import '../widgets/app_branded_header.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/app_toast.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/error_state.dart';
+import '../widgets/filter_chip_row.dart';
+import '../widgets/list_skeleton.dart';
 
 class ExpensesScreen extends StatefulWidget {
   const ExpensesScreen({super.key});
@@ -16,11 +25,6 @@ class ExpensesScreen extends StatefulWidget {
 }
 
 class _ExpensesScreenState extends State<ExpensesScreen> {
-  static const colorBackground = Color(0xFF0D1E16);
-  static const colorGold = Color(0xFFB89775);
-  static const colorCard = Color(0xFF142A20);
-  static const colorTextSec = Color(0xFF7A8B83);
-
   TransactionType? _filterType;
   String? _filterCategory;
   String _search = '';
@@ -58,34 +62,36 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return list;
   }
 
+  int get _typeFilterIndex {
+    if (_filterCategory != null) return -1;
+    if (_filterType == null) return 0;
+    if (_filterType == TransactionType.receita) return 1;
+    return 2;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: colorBackground,
+      backgroundColor: AppColors.background,
       drawer: const AppDrawer(currentRoute: 'expenses'),
       appBar: const AppBrandedHeader(title: 'Transações'),
       body: Consumer<TransactionProvider>(
         builder: (context, tx, _) {
           if (tx.loading) {
-            return const Center(
-                child: CircularProgressIndicator(color: colorGold));
+            return const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.l,
+                AppSpacing.xl,
+                AppSpacing.l,
+              ),
+              child: ListSkeleton(itemCount: 8, itemHeight: 72),
+            );
           }
           if (tx.error != null) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.cloud_off, color: colorTextSec, size: 48),
-                  const SizedBox(height: 8),
-                  const Text('Não foi possível carregar as transações.',
-                      style: TextStyle(color: Colors.white54),
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 4),
-                  const Text('Verifique sua conexão e tente novamente.',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
-                      textAlign: TextAlign.center),
-                ],
-              ),
+            return const ErrorState(
+              message: 'Não foi possível carregar as transações.\n'
+                  'Verifique sua conexão e tente novamente.',
             );
           }
           return Column(
@@ -99,7 +105,6 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.pushNamed(context, '/transaction-form'),
-        backgroundColor: const Color(0xFF165A41),
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );
@@ -107,39 +112,59 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   Widget _buildSummary(TransactionProvider tx) {
     final list = _filtered;
-    final receitas = list.where((t) => t.type.isReceita).fold<double>(
-        0, (s, t) => s + t.amount);
-    final despesas = list.where((t) => !t.type.isReceita).fold<double>(
-        0, (s, t) => s + t.amount);
+    final receitas = list
+        .where((t) => t.type.isReceita)
+        .fold<double>(0, (s, t) => s + t.amount);
+    final despesas = list
+        .where((t) => !t.type.isReceita)
+        .fold<double>(0, (s, t) => s + t.amount);
     return Container(
-      margin: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.l,
+        AppSpacing.xl,
+        AppSpacing.s,
+      ),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-          color: colorCard, borderRadius: BorderRadius.circular(15)),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+      ),
       child: Row(
         children: [
           Expanded(
-            child: _summaryItem('Receitas', formatCurrencyAbs(receitas),
-                Colors.green, Icons.arrow_upward),
+            child: _summaryItem(
+              'Receitas',
+              formatCurrencyAbs(receitas),
+              AppColors.success,
+              Icons.arrow_upward,
+            ),
           ),
           Container(
-              width: 1,
-              height: 38,
-              color: Colors.white.withValues(alpha: 0.08)),
-          Expanded(
-            child: _summaryItem('Despesas', formatCurrencyAbs(despesas),
-                Colors.red, Icons.arrow_downward),
+            width: 1,
+            height: 38,
+            color: AppColors.textPrimary.withValues(alpha: 0.08),
           ),
-          Container(
-              width: 1,
-              height: 38,
-              color: Colors.white.withValues(alpha: 0.08)),
           Expanded(
             child: _summaryItem(
-                'Saldo',
-                formatCurrency(receitas - despesas),
-                (receitas - despesas) >= 0 ? Colors.green : Colors.red,
-                Icons.account_balance_wallet_outlined),
+              'Despesas',
+              formatCurrencyAbs(despesas),
+              AppColors.danger,
+              Icons.arrow_downward,
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 38,
+            color: AppColors.textPrimary.withValues(alpha: 0.08),
+          ),
+          Expanded(
+            child: _summaryItem(
+              'Saldo',
+              formatCurrency(receitas - despesas),
+              (receitas - despesas) >= 0 ? AppColors.success : AppColors.danger,
+              Icons.account_balance_wallet_outlined,
+            ),
           ),
         ],
       ),
@@ -150,86 +175,109 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return Column(
       children: [
         Icon(icon, color: color.withValues(alpha: 0.7), size: 18),
-        const SizedBox(height: 4),
-        Text(label,
-            style: const TextStyle(color: colorTextSec, fontSize: 11)),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.textSec,
+            fontSize: AppTypography.caption,
+          ),
+        ),
         const SizedBox(height: 2),
         FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(value,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.bold, fontSize: 13)),
+          child: Text(
+            value,
+            style: AppTypography.number(
+              color: color,
+              fontSize: AppTypography.body,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildFilters() {
+    final categorySelected = _filterCategory != null;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.s,
+        AppSpacing.xl,
+        AppSpacing.m,
+      ),
       child: Column(
         children: [
           TextField(
             onChanged: (v) => setState(() => _search = v),
-            style: const TextStyle(color: Colors.white),
+            style: const TextStyle(color: AppColors.textPrimary),
             decoration: InputDecoration(
-              hintText: 'Buscar transação...',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintText: 'Buscar por descrição ou categoria...',
+              hintStyle: const TextStyle(color: AppColors.textTertiary),
               prefixIcon:
-                  const Icon(Icons.search, color: colorGold, size: 20),
+                  const Icon(Icons.search, color: AppColors.gold, size: 20),
               filled: true,
-              fillColor: colorCard,
+              fillColor: AppColors.card,
               isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 8),
+              contentPadding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide:
-                    BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: BorderSide(
+                  color: AppColors.textPrimary.withValues(alpha: 0.06),
+                ),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: colorGold, width: 1.2),
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                borderSide: const BorderSide(
+                  color: AppColors.gold,
+                  width: 1.2,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.m),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _filterChip('Todas', _filterType == null && _filterCategory == null, () {
-                  setState(() {
-                    _filterType = null;
+                AppFilterChipRow(
+                  options: const ['Todas', 'Receitas', 'Despesas'],
+                  selectedIndex: _typeFilterIndex == -1 ? 0 : _typeFilterIndex,
+                  onSelected: (index) => setState(() {
                     _filterCategory = null;
-                  });
-                }),
-                const SizedBox(width: 8),
-                _filterChip('Receitas', _filterType == TransactionType.receita,
-                    () => setState(() {
-                          _filterType = TransactionType.receita;
-                        })),
-                const SizedBox(width: 8),
-                _filterChip(
-                    'Despesas', _filterType == TransactionType.despesa,
-                    () => setState(() {
-                          _filterType = TransactionType.despesa;
-                        })),
-                const SizedBox(width: 8),
+                    switch (index) {
+                      case 1:
+                        _filterType = TransactionType.receita;
+                        break;
+                      case 2:
+                        _filterType = TransactionType.despesa;
+                        break;
+                      default:
+                        _filterType = null;
+                    }
+                  }),
+                ),
+                const SizedBox(width: AppSpacing.s),
                 PopupMenuButton<String>(
-                  color: colorCard,
-                  onSelected: (v) => setState(() => _filterCategory = v),
+                  color: AppColors.card,
+                  onSelected: (v) => setState(() {
+                    _filterCategory = v;
+                    _filterType = null;
+                  }),
                   itemBuilder: (_) => _availableCategories
                       .map((c) => PopupMenuItem(
                             value: c,
-                            child: Text(c,
-                                style: const TextStyle(color: Colors.white)),
+                            child: Text(
+                              c,
+                              style: const TextStyle(
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
                           ))
                       .toList(),
-                  child: _filterChip(
-                      _filterCategory ?? 'Categoria',
-                      _filterCategory != null,
-                      () {},
-                      isMenu: true),
+                  child: _categoryChip(categorySelected),
                 ),
               ],
             ),
@@ -239,31 +287,34 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     );
   }
 
-  Widget _filterChip(String label, bool selected, VoidCallback onTap,
-      {bool isMenu = false}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF165A41) : colorCard,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label,
-                style: TextStyle(
-                    color: selected ? Colors.white : Colors.white70,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13)),
-            if (isMenu) ...[
-              const SizedBox(width: 6),
-              const Icon(Icons.filter_list,
-                  color: Colors.white54, size: 14),
-            ],
-          ],
-        ),
+  Widget _categoryChip(bool selected) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.l,
+        vertical: AppSpacing.s,
+      ),
+      decoration: BoxDecoration(
+        color: selected ? AppColors.greenPrimary : AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _filterCategory ?? 'Categoria',
+            style: TextStyle(
+              color: selected ? Colors.white : AppColors.textSec,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              fontSize: AppTypography.body,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.s),
+          const Icon(
+            Icons.filter_list,
+            color: AppColors.textSec,
+            size: 14,
+          ),
+        ],
       ),
     );
   }
@@ -271,24 +322,21 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   Widget _buildList(TransactionProvider tx) {
     final list = _filtered;
     if (list.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(40),
-        children: [
-          const Icon(Icons.receipt_long_outlined,
-              size: 56, color: colorTextSec),
-          const SizedBox(height: 12),
-          const Text('Nenhuma transação encontrada',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54)),
-          const SizedBox(height: 6),
-          const Text('Use o botão + para registrar.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white38, fontSize: 12)),
-        ],
+      return EmptyState(
+        icon: Icons.receipt_long_outlined,
+        title: 'Nenhuma transação encontrada',
+        message: 'Use o botão + para registrar uma venda ou um custo.',
+        actionLabel: 'Nova transação',
+        onAction: () => Navigator.pushNamed(context, '/transaction-form'),
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 80),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.xs,
+        AppSpacing.xl,
+        AppSpacing.xxxl,
+      ),
       itemCount: list.length,
       itemBuilder: (context, i) {
         final t = list[i];
@@ -299,78 +347,107 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
           direction: DismissDirection.endToStart,
           background: Container(
             alignment: Alignment.centerRight,
-            padding: const EdgeInsets.only(right: 20),
-            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(right: AppSpacing.xl),
+            margin: const EdgeInsets.only(bottom: AppSpacing.m),
             decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(12)),
-            child: const Icon(Icons.delete, color: Colors.red),
+              color: AppColors.danger.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
+            child: const Icon(Icons.delete, color: AppColors.danger),
           ),
           confirmDismiss: (_) => _confirmDeleteBool(t),
           child: Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(16),
+            margin: const EdgeInsets.only(bottom: AppSpacing.m),
+            padding: const EdgeInsets.all(AppSpacing.l),
             decoration: BoxDecoration(
-                color: colorCard, borderRadius: BorderRadius.circular(12)),
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
             child: Row(
               children: [
                 CircleAvatar(
-                    backgroundColor: colorBackground,
-                    child: Icon(cat.icon, color: cat.color, size: 20)),
-                const SizedBox(width: 14),
+                  backgroundColor: AppColors.background,
+                  child: Icon(cat.icon, color: cat.color, size: 20),
+                ),
+                const SizedBox(width: AppSpacing.l),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(t.description,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 4),
+                      Text(
+                        t.description,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
                       Wrap(
-                        spacing: 6,
+                        spacing: AppSpacing.s,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           _tag(cat.name, cat.color),
-                          Text(t.paymentMethod.label,
-                              style: const TextStyle(
-                                  color: colorTextSec, fontSize: 11)),
+                          Text(
+                            t.paymentMethod.label,
+                            style: const TextStyle(
+                              color: AppColors.textSec,
+                              fontSize: AppTypography.caption,
+                            ),
+                          ),
                           if (t.recurring)
-                            const Icon(Icons.repeat,
-                                size: 12, color: colorGold),
+                            const Icon(
+                              Icons.repeat,
+                              size: 12,
+                              color: AppColors.gold,
+                            ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(formatDate(t.date),
-                          style: const TextStyle(
-                              color: colorTextSec, fontSize: 11)),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        formatDate(t.date),
+                        style: const TextStyle(
+                          color: AppColors.textSec,
+                          fontSize: AppTypography.caption,
+                        ),
+                      ),
                     ],
                   ),
                 ),
                 Row(
                   children: [
                     Text(
-                        '${isIncome ? '+' : '-'}${formatCurrencyAbs(t.amount)}',
-                        style: TextStyle(
-                            color: isIncome ? Colors.green : Colors.red,
-                            fontWeight: FontWeight.bold)),
+                      '${isIncome ? '+' : '-'}${formatCurrencyAbs(t.amount)}',
+                      style: AppTypography.number(
+                        color: isIncome ? AppColors.success : AppColors.danger,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     PopupMenuButton<String>(
-                      color: colorCard,
-                      icon: const Icon(Icons.more_vert,
-                          color: Colors.white54, size: 18),
+                      color: AppColors.card,
+                      icon: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.textSec,
+                        size: 18,
+                      ),
                       onSelected: (v) {
                         if (v == 'edit') {
-                          Navigator.pushNamed(context, '/transaction-form',
-                              arguments: t);
+                          Navigator.pushNamed(
+                            context,
+                            '/transaction-form',
+                            arguments: t,
+                          );
                         }
                       },
                       itemBuilder: (_) => const [
                         PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Editar',
-                                style: TextStyle(color: Colors.white))),
+                          value: 'edit',
+                          child: Text(
+                            'Editar',
+                            style: TextStyle(color: AppColors.textPrimary),
+                          ),
+                        ),
                       ],
                     ),
                   ],
@@ -385,12 +462,21 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
 
   Widget _tag(String label, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(4)),
-      child: Text(label,
-          style: TextStyle(color: color, fontSize: 10)),
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: AppTypography.caption,
+        ),
+      ),
     );
   }
 
@@ -398,31 +484,40 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: colorCard,
-        title: const Text('Excluir transação?',
-            style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: Text('"${t.description}" será removida permanentemente.',
-            style: const TextStyle(color: Colors.white70)),
+        backgroundColor: AppColors.card,
+        title: const Text(
+          'Excluir transação?',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.title,
+          ),
+        ),
+        content: Text(
+          '"${t.description}" será removida permanentemente.',
+          style: const TextStyle(color: AppColors.textSec),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancelar',
-                  style: TextStyle(color: colorGold))),
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.gold),
+            ),
+          ),
           TextButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Excluir',
-                  style: TextStyle(color: Colors.red))),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Excluir',
+              style: TextStyle(color: AppColors.danger),
+            ),
+          ),
         ],
       ),
     );
     if (ok == true && mounted) {
       await context.read<TransactionProvider>().deleteTransaction(t.id);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Transação excluída.'),
-              backgroundColor: colorGold),
-        );
+        AppToast.success(context, 'Transação excluída.');
       }
       return true;
     }

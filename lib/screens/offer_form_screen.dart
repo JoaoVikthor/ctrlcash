@@ -4,7 +4,13 @@ import 'package:provider/provider.dart';
 import '../models/ingredient.dart';
 import '../models/ingredient_offer.dart';
 import '../providers/ingredient_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
+import '../utils/offer_rules.dart';
+import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/delta_price_text.dart';
 import '../widgets/error_state.dart';
 import '../widgets/offer_limit_banner.dart';
@@ -24,12 +30,8 @@ class OfferFormScreen extends StatefulWidget {
 }
 
 class _OfferFormScreenState extends State<OfferFormScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   final _supplierController = TextEditingController();
+  final _productNameController = TextEditingController();
   final _priceController = TextEditingController();
   final _qtyController = TextEditingController();
   final _notesController = TextEditingController();
@@ -45,6 +47,7 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
     final offer = widget.offer;
     if (offer != null) {
       _supplierController.text = offer.supplier;
+      _productNameController.text = offer.productName;
       _priceController.text = _formatNumber(offer.packagePrice);
       _qtyController.text = _formatNumber(offer.packageQuantity);
       _notesController.text = offer.notes;
@@ -54,6 +57,7 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
   @override
   void dispose() {
     _supplierController.dispose();
+    _productNameController.dispose();
     _priceController.dispose();
     _qtyController.dispose();
     _notesController.dispose();
@@ -72,26 +76,26 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
     final isEdit = widget.offer != null;
 
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
           tooltip: 'Voltar',
         ),
         title: Text(
           isEdit ? 'Editar oferta' : 'Nova oferta',
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
       ),
       body: ingredient == null && !provider.loading
-          ? const ErrorState(message: 'Insumo não encontrado.')
+          ? const ErrorState(message: 'Produto não encontrado.')
           : _buildBody(ingredient, isEdit),
       bottomNavigationBar: ingredient == null
           ? null
@@ -102,7 +106,7 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
   Widget _buildBody(Ingredient? ingredient, bool isEdit) {
     if (ingredient == null) {
       return const Center(
-        child: CircularProgressIndicator(color: _colorGold),
+        child: CircularProgressIndicator(color: AppColors.gold),
       );
     }
 
@@ -118,7 +122,9 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
         children: [
           const Text(
             'Informe o que você paga e quanto vem na embalagem. O app calcula o preço por unidade.',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+            style: TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.body),
           ),
           const SizedBox(height: 20),
           _field(
@@ -126,7 +132,15 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
             label: 'Nome do fornecedor',
             icon: Icons.storefront_outlined,
             errorText: _supplierError,
-            helper: 'Ex.: Distribuidora Central, Atacado do Zé',
+            helperText: 'Ex.: Distribuidora Central, Atacado do Zé',
+          ),
+          const SizedBox(height: 12),
+          _field(
+            controller: _productNameController,
+            label: 'Nome do produto (como o fornecedor anuncia)',
+            icon: Icons.local_offer_outlined,
+            helperText: 'Ex.: Farinha de trigo tipo 1 — 5kg',
+            maxLength: 80,
           ),
           const SizedBox(height: 16),
           Row(
@@ -168,14 +182,15 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
             icon: Icons.notes_outlined,
             maxLines: 4,
             minLines: 2,
-            counter: notesLength > 160 ? '$notesLength/200' : null,
+            maxLength: 200,
+            helperText: notesLength > 160 ? '$notesLength/200' : null,
           ),
           if (isEdit && ingredient.activeOffer != null &&
               widget.offer?.id != ingredient.activeOffer!.id) ...[
             const SizedBox(height: 16),
             _buildCompareCard(ingredient.activeOffer!),
           ],
-          if (!isEdit && ingredient.offersCount >= 15) ...[
+          if (!isEdit && ingredient.offersCount >= maxOffersPerIngredient) ...[
             const SizedBox(height: 16),
             OfferLimitBanner(current: ingredient.offersCount),
           ],
@@ -190,40 +205,22 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
     required String label,
     required IconData icon,
     String? errorText,
-    String? helper,
-    String? counter,
+    String? helperText,
+    String? counterText,
+    int? maxLength,
     TextInputType keyboardType = TextInputType.text,
     int? maxLines,
     int? minLines,
   }) {
-    return TextField(
+    return AppTextField(
       controller: controller,
+      label: label,
+      icon: icon,
       keyboardType: keyboardType,
-      maxLines: maxLines ?? 1,
-      minLines: minLines,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        helperText: helper,
-        helperStyle: const TextStyle(color: Color(0xFF7A8B83), fontSize: 11),
-        errorText: errorText,
-        counterText: counter,
-        counterStyle: const TextStyle(color: Color(0xFF7A8B83), fontSize: 11),
-        prefixIcon: Icon(icon, color: _colorGold, size: 20),
-        filled: true,
-        fillColor: _colorCard,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
-        ),
-      ),
+      errorText: errorText,
+      helperText: helperText ?? counterText,
+      maxLength: maxLength,
+      maxLines: maxLines,
     );
   }
 
@@ -231,14 +228,14 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Text(
         'unidade: $label',
         style: const TextStyle(
-          color: _colorGold,
-          fontSize: 13,
+          color: AppColors.gold,
+          fontSize: AppTypography.body,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -249,10 +246,10 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _colorGreenPrimary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.greenPrimary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
-          color: _colorGreenPrimary.withValues(alpha: 0.3),
+          color: AppColors.greenPrimary.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -261,12 +258,12 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.lightbulb_outline, color: _colorGold, size: 18),
+              Icon(Icons.lightbulb_outline, color: AppColors.gold, size: 18),
               SizedBox(width: 8),
               Text(
                 'Preço por unidade',
                 style: TextStyle(
-                  color: _colorGold,
+                  color: AppColors.gold,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -274,20 +271,20 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
           ),
           const SizedBox(height: 8),
           if (qty <= 0)
-            const Text(
+            Text(
               'Informe a quantidade',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 22,
+              style: AppTypography.number(
+                color: AppColors.textPrimary,
+                fontSize: AppTypography.title,
                 fontWeight: FontWeight.bold,
               ),
             )
           else
             Text(
               '${formatCurrencyAbs(perUnit)} / ${ingredient.unit.label}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
+              style: AppTypography.number(
+                color: AppColors.textPrimary,
+                fontSize: AppTypography.title,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -304,8 +301,8 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,18 +310,29 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
           const Text(
             'Comparado com a oferta ativa',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.textPrimary,
               fontWeight: FontWeight.bold,
-              fontSize: 14,
+              fontSize: AppTypography.body,
             ),
           ),
           const SizedBox(height: 8),
-          DeltaPriceText(delta: delta, fontSize: 18),
+          DeltaPriceText(delta: delta, fontSize: AppTypography.title),
           const SizedBox(height: 4),
           Text(
             'Ativa: ${active.supplier} · ${formatCurrencyAbs(active.pricePerUnit)}/un',
-            style: const TextStyle(color: Color(0xFF7A8B83), fontSize: 12),
+            style: const TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
           ),
+          if (active.hasProductName) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Produto: ${active.productName}',
+              style: const TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.caption),
+            ),
+          ],
         ],
       ),
     );
@@ -337,12 +345,12 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
         child: ElevatedButton(
           onPressed: _saving ? null : () => _save(ingredient, isEdit),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _colorGreenPrimary,
+            backgroundColor: AppColors.greenPrimary,
             disabledBackgroundColor:
-                _colorGreenPrimary.withValues(alpha: 0.5),
+                AppColors.greenPrimary.withValues(alpha: 0.5),
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             elevation: 0,
           ),
@@ -395,9 +403,13 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
       return;
     }
 
-    if (!isEdit && ingredient.offersCount >= 15) {
-      _toast('Limite de 15 ofertas por insumo.');
-      return;
+    if (!isEdit) {
+      try {
+        ensureOfferLimit(ingredient.offersCount);
+      } catch (e) {
+        _toast(e.toString());
+        return;
+      }
     }
 
     setState(() => _saving = true);
@@ -407,6 +419,7 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
       final offer = IngredientOffer(
         id: isEdit ? widget.offer!.id : '',
         supplier: supplier,
+        productName: _productNameController.text.trim(),
         packagePrice: price,
         packageQuantity: qty,
         isActive: isEdit ? widget.offer!.isActive : true,
@@ -421,13 +434,8 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
           .upsertOffer(ingredient.id, offer);
 
       if (!mounted) return;
+      AppToast.success(context, isEdit ? 'Oferta atualizada.' : 'Oferta salva.');
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isEdit ? 'Oferta atualizada.' : 'Oferta salva.'),
-          backgroundColor: _colorGold,
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       _toast('Erro ao salvar oferta: $e');
@@ -441,8 +449,6 @@ class _OfferFormScreenState extends State<OfferFormScreen> {
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
+    AppToast.error(context, msg);
   }
 }

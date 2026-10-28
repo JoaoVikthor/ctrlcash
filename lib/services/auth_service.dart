@@ -73,6 +73,67 @@ class AuthService {
     }
   }
 
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(friendlyAuthError(e));
+    }
+  }
+
+  Future<void> reauthenticateWithPassword(String password) async {
+    final user = _auth.currentUser;
+    final email = user?.email;
+    if (user == null || email == null || email.isEmpty) {
+      throw AuthException('Sessão inválida. Faça login novamente.');
+    }
+    try {
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+      await user.reauthenticateWithCredential(credential);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(friendlyAuthError(e));
+    }
+  }
+
+  Future<void> updateEmail(String newEmail) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw AuthException('Nenhum usuário autenticado.');
+    }
+    try {
+      await user.updateEmail(newEmail);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(friendlyAuthError(e));
+    }
+  }
+
+  Future<void> updatePassword(String newPassword) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw AuthException('Nenhum usuário autenticado.');
+    }
+    try {
+      await user.updatePassword(newPassword);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(friendlyAuthError(e));
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw AuthException('Nenhum usuário autenticado.');
+    }
+    try {
+      await user.delete();
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(friendlyAuthError(e));
+    }
+  }
+
   /// Encerra a sessao atual.
   Future<void> signOut() async {
     await _auth.signOut();

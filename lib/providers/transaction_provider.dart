@@ -20,6 +20,7 @@ class TransactionProvider extends ChangeNotifier {
   UserProvider? _userProvider;
   String? _uid;
   StreamSubscription<List<AppTransaction>>? _sub;
+  String? _generationUid;
 
   List<AppTransaction> _transactions = const [];
   bool _loading = true;
@@ -59,6 +60,7 @@ class TransactionProvider extends ChangeNotifier {
     if (_uid == null) {
       _transactions = const [];
       _loading = false;
+      _generationUid = null;
       notifyListeners();
       return;
     }
@@ -70,6 +72,17 @@ class TransactionProvider extends ChangeNotifier {
         _loading = false;
         _error = null;
         notifyListeners();
+        if (_uid != null && _generationUid != _uid) {
+          _generationUid = _uid;
+          _firestore
+              .generateDueRecurrences(_uid!, list)
+              .then((_) => 0)
+              .catchError((e) {
+            debugPrint(
+                '[TransactionProvider] generateDueRecurrences error: $e');
+            return 0;
+          });
+        }
       },
       onError: (e) {
         debugPrint('[TransactionProvider] stream error: $e');

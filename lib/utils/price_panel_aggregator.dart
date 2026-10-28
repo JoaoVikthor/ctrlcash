@@ -108,6 +108,13 @@ class PricePanelAggregator {
     return _unaccent(value).trim().toLowerCase();
   }
 
+  static List<String> _productNames(Ingredient ingredient) {
+    return _validActiveOffers(ingredient)
+        .map((o) => o.productName.trim())
+        .where((name) => name.isNotEmpty)
+        .toList();
+  }
+
   static Map<String, String> _supplierDisplayNames(
       List<IngredientOffer> offers) {
     final displayNames = <String, String>{};
@@ -217,7 +224,9 @@ class PricePanelAggregator {
       final matchesQuery = normalizedQuery.isEmpty ||
           _sortKey(entry.ingredient.name).contains(normalizedQueryKey) ||
           entry.supplierNames
-              .any((s) => _sortKey(s).contains(normalizedQueryKey));
+              .any((s) => _sortKey(s).contains(normalizedQueryKey)) ||
+          _productNames(entry.ingredient)
+              .any((p) => _sortKey(p).contains(normalizedQueryKey));
       final matchesSupplier = normalizedSupplier.isEmpty ||
           entry.supplierNames
               .map(_normalizedSupplier)

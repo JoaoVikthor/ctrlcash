@@ -1,78 +1,101 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import '../../theme/app_colors.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
+import '../../utils/app_info.dart';
 import '../../widgets/app_branded_header.dart';
+import '../../widgets/app_toast.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({super.key});
 
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: const AppBrandedHeader(title: 'Ajuda & Suporte', showBack: true),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         children: [
-          const Text('Central de ajuda',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          const Text('Tire dúvidas e encontre suporte.',
-              style: TextStyle(color: Colors.grey, fontSize: 13)),
-          const SizedBox(height: 20),
+          Text(
+            'Central de ajuda',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: AppTypography.title,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          const Text(
+            'Tire dúvidas e encontre suporte.',
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.body,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xl),
           _tile(Icons.menu_book_outlined, 'Como usar o CashCtrl', () {
-            _showInfo(context, 'O CashCtrl organiza suas finanças em transações, orçamentos e produtos. Use o menu para navegar entre as telas.');
+            _showInfo(context,
+                'O CashCtrl organiza o negócio em transações, orçamentos, produtos e fichas técnicas. Use o menu para navegar entre as telas.');
           }),
           _tile(Icons.receipt_long_outlined, 'Registrar transações', () {
-            _showInfo(context, 'Em "Transações", toque no + para registrar uma receita ou despesa. Informe valor, categoria e data.');
+            _showInfo(context,
+                'Em "Transações", toque no + para registrar uma receita ou despesa do negócio. Informe valor, categoria e data.');
           }),
           _tile(Icons.account_balance_outlined, 'Criar orçamentos', () {
-            _showInfo(context, 'Em "Orçamentos", defina um limite mensal por categoria. O app calcula o quanto já foi gasto.');
+            _showInfo(context,
+                'Em "Orçamentos", defina um limite mensal por categoria. O app calcula quanto o negócio já gastou.');
           }),
-          _tile(Icons.inventory_2_outlined, 'Parque de insumos', () {
-            _showInfo(context, 'Cadastre os materiais que você compra. O app calcula o preço por unidade automaticamente (ex.: preço por grama).');
+          _tile(Icons.inventory_2_outlined, 'Produtos', () {
+            _showInfo(context,
+                'Em "Produtos", cadastre os itens que você compra. O app calcula o preço por unidade automaticamente (ex.: preço por grama) e compara fornecedores.');
           }),
           _tile(Icons.lunch_dining_outlined, 'Ficha técnica / Ticket', () {
-            _showInfo(context, 'Crie um produto selecionando os insumos, a quantidade usada, mão de obra e embalagem. O app mostra o custo por ingrediente e se o produto dá lucro ou prejuízo.');
+            _showInfo(context,
+                'Em "Fichas técnicas", crie um prato selecionando os produtos, a quantidade usada, mão de obra e embalagem. O app mostra o custo por item e se o prato dá lucro ou prejuízo.');
           }),
           _tile(Icons.support_agent_outlined, 'Falar com suporte', () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Contato: suporte@ctrlcash.app'),
-                  backgroundColor: _colorGreenPrimary),
-            );
+            AppToast.info(context, 'Contato: suporte@ctrlcash.app');
           }),
           _tile(Icons.bug_report_outlined, 'Reportar um problema', () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Obrigado! Reporte enviado.'),
-                  backgroundColor: _colorGreenPrimary),
-            );
+            _showReportDialog(context);
           }),
-          const SizedBox(height: 24),
-          const Text('Sobre o app',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.xxl),
+          const Text(
+            'Sobre o app',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.s),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.l),
             decoration: BoxDecoration(
-                color: _colorCard, borderRadius: BorderRadius.circular(12)),
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(AppRadius.md),
+            ),
             child: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('CashCtrl v1.0.0',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-                SizedBox(height: 6),
-                Text('Controle financeiro pessoal e de negócio com cálculo de ticket e ficha técnica de produtos.',
-                    style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(
+                  '${AppInfo.appName} ${AppInfo.version}',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: AppSpacing.s),
+                Text(
+                  'Gestão financeira do negócio com cálculo de ticket e ficha técnica de produtos.',
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.secondary,
+                  ),
+                ),
               ],
             ),
           ),
@@ -83,14 +106,22 @@ class HelpScreen extends StatelessWidget {
 
   Widget _tile(IconData icon, String title, VoidCallback onTap) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: AppSpacing.m),
       decoration: BoxDecoration(
-          color: _colorCard, borderRadius: BorderRadius.circular(12)),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+      ),
       child: ListTile(
-        leading: Icon(icon, color: _colorGold),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        trailing: const Icon(Icons.arrow_forward_ios,
-            color: Colors.white54, size: 16),
+        leading: Icon(icon, color: AppColors.gold),
+        title: Text(
+          title,
+          style: const TextStyle(color: AppColors.textPrimary),
+        ),
+        trailing: const Icon(
+          Icons.arrow_forward_ios,
+          color: AppColors.textSec,
+          size: 16,
+        ),
         onTap: onTap,
       ),
     );
@@ -100,14 +131,119 @@ class HelpScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _colorCard,
-        title: const Text('Ajuda', style: TextStyle(color: Colors.white)),
-        content: Text(text, style: const TextStyle(color: Colors.white70)),
+        backgroundColor: AppColors.card,
+        title: const Text(
+          'Ajuda',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Text(
+          text,
+          style: const TextStyle(color: AppColors.textSec),
+        ),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Entendi',
-                  style: TextStyle(color: _colorGold))),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Entendi',
+              style: TextStyle(color: AppColors.gold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportDialog(BuildContext context) {
+    final controller = TextEditingController();
+    const supportEmail = 'suporte@ctrlcash.app';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: const Text(
+          'Reportar um problema',
+          style: TextStyle(color: AppColors.textPrimary),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Descreva o que aconteceu:',
+              style: TextStyle(color: AppColors.textSec),
+            ),
+            const SizedBox(height: AppSpacing.m),
+            TextField(
+              controller: controller,
+              maxLines: 4,
+              style: const TextStyle(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: AppColors.background,
+                hintText: 'Explique o problema...',
+                hintStyle: const TextStyle(color: AppColors.textSec),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.l),
+            const Text(
+              'Envie para:',
+              style: TextStyle(color: AppColors.textSec),
+            ),
+            const SizedBox(height: AppSpacing.s),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.l),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.email_outlined, color: AppColors.gold),
+                  SizedBox(width: AppSpacing.m),
+                  Expanded(
+                    child: Text(
+                      supportEmail,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: AppColors.textSec),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              await Clipboard.setData(
+                const ClipboardData(text: supportEmail),
+              );
+              if (!context.mounted) return;
+              Navigator.pop(ctx);
+              AppToast.success(
+                context,
+                'E-mail copiado — envie para suporte@ctrlcash.app',
+              );
+            },
+            icon: const Icon(Icons.copy, color: Colors.white, size: 18),
+            label: const Text(
+              'Copiar e-mail',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
         ],
       ),
     );

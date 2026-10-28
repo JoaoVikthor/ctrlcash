@@ -1,10 +1,13 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/categories.dart';
 import '../utils/format.dart';
 
-/// Grafico de pizza com a distribuicao de despesas por categoria.
 class CategoryPieChart extends StatefulWidget {
   final Map<String, double> values;
   final String centerLabel;
@@ -36,11 +39,18 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.donut_small_outlined,
-                  size: 56, color: Colors.white.withValues(alpha: 0.2)),
-              const SizedBox(height: 12),
-              const Text('Sem despesas registradas',
-                  style: TextStyle(color: Colors.white54)),
+              Icon(
+                Icons.donut_small_outlined,
+                size: 56,
+                color: AppColors.textPrimary.withValues(alpha: 0.2),
+              ),
+              const SizedBox(height: AppSpacing.m),
+              Text(
+                'Sem despesas registradas',
+                style: TextStyle(
+                  color: AppColors.textPrimary.withValues(alpha: 0.5),
+                ),
+              ),
             ],
           ),
         ),
@@ -62,12 +72,15 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
             ? '${e.key}\n${percent.toStringAsFixed(0)}%'
             : '${percent.toStringAsFixed(0)}%',
         titleStyle: TextStyle(
-          fontSize: isTouched ? 13 : 11,
+          fontSize: isTouched ? AppTypography.body : AppTypography.caption,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: AppColors.textPrimary,
         ),
         borderSide: isTouched
-            ? BorderSide(color: Colors.white.withValues(alpha: 0.3), width: 2)
+            ? BorderSide(
+                color: AppColors.textPrimary.withValues(alpha: 0.3),
+                width: 2,
+              )
             : BorderSide.none,
       ));
     }
@@ -95,7 +108,7 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: AppSpacing.m),
         Expanded(
           flex: 4,
           child: SizedBox(
@@ -104,8 +117,12 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
               padding: EdgeInsets.zero,
               children: [
                 for (var i = 0; i < entries.length; i++)
-                  _legendRow(entries[i].key, entries[i].value,
-                      findCategory(entries[i].key).color, _touched == i),
+                  _legendRow(
+                    entries[i].key,
+                    entries[i].value,
+                    findCategory(entries[i].key).color,
+                    _touched == i,
+                  ),
               ],
             ),
           ),
@@ -116,26 +133,38 @@ class _CategoryPieChartState extends State<CategoryPieChart> {
 
   Widget _legendRow(String name, double value, Color color, bool highlight) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         children: [
           Container(
             width: 10,
             height: 10,
             decoration: BoxDecoration(
-                color: color, borderRadius: BorderRadius.circular(3)),
+              color: color,
+              borderRadius: BorderRadius.circular(AppRadius.sm),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpacing.s),
           Expanded(
-            child: Text(name,
-                style: TextStyle(
-                    color: highlight ? Colors.white : Colors.white70,
-                    fontSize: 12,
-                    fontWeight:
-                        highlight ? FontWeight.bold : FontWeight.normal)),
+            child: Text(
+              name,
+              style: TextStyle(
+                color: highlight
+                    ? AppColors.textPrimary
+                    : AppColors.textPrimary.withValues(alpha: 0.7),
+                fontSize: AppTypography.secondary,
+                fontWeight:
+                    highlight ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
           ),
-          Text(formatCurrencyAbs(value),
-              style: const TextStyle(color: Colors.white, fontSize: 11)),
+          Text(
+            formatCurrencyAbs(value),
+            style: AppTypography.number(
+              color: AppColors.textPrimary,
+              fontSize: AppTypography.caption,
+            ),
+          ),
         ],
       ),
     );

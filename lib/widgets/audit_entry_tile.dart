@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/price_audit_log.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 
 class AuditEntryTile extends StatelessWidget {
@@ -14,41 +17,41 @@ class AuditEntryTile extends StatelessWidget {
     final icon = _iconFor(log.action);
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.m),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             icon,
-            color: destructive ? Colors.red : const Color(0xFFB89775),
+            color: destructive ? AppColors.danger : AppColors.gold,
             size: 22,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.m),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   log.summary,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.body,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   _detail(),
-                  style: const TextStyle(
-                    color: Color(0xFF7A8B83),
-                    fontSize: 12,
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.secondary,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   _time(),
-                  style: const TextStyle(
-                    color: Color(0xFF7A8B83),
-                    fontSize: 11,
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.caption,
                   ),
                 ),
               ],

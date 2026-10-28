@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/ingredient.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/price_panel_aggregator.dart';
 import 'active_offer_marker.dart';
@@ -24,22 +28,17 @@ class PanelProductCard extends StatelessWidget {
     required this.onTap,
   });
 
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-  static const Color _colorGreen = Colors.green;
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: AppSpacing.m),
+        padding: const EdgeInsets.all(AppSpacing.l),
         decoration: BoxDecoration(
-          color: _colorCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,15 +47,15 @@ class PanelProductCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: _buildNameBlock()),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.s),
                 _buildPills(),
               ],
             ),
             const SizedBox(height: 10),
             _buildBestBlock(),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s),
             _buildTicketLine(),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s),
             _buildMiniChips(),
             if (entry.deltaVsBest > 0) ...[
               const SizedBox(height: 9),
@@ -75,9 +74,9 @@ class PanelProductCard extends StatelessWidget {
       children: [
         Text(
           ing.name,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 14,
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.body,
             fontWeight: FontWeight.bold,
           ),
           maxLines: 2,
@@ -86,7 +85,10 @@ class PanelProductCard extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           _unitLine(),
-          style: const TextStyle(color: _colorTextSec, fontSize: 10),
+          style: TextStyle(
+            color: AppColors.textSec,
+            fontSize: AppTypography.caption,
+          ),
         ),
       ],
     );
@@ -103,16 +105,21 @@ class PanelProductCard extends StatelessWidget {
   Widget _buildPills() {
     if (entry.legacyOnly) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.white24),
-          borderRadius: BorderRadius.circular(20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.s,
+          vertical: 3,
         ),
-        child: const Text(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: AppColors.textPrimary.withValues(alpha: 0.14),
+          ),
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
           'sem comparação',
           style: TextStyle(
-            color: _colorTextSec,
-            fontSize: 10,
+            color: AppColors.textSec,
+            fontSize: AppTypography.caption,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -125,7 +132,7 @@ class PanelProductCard extends StatelessWidget {
 
     return Wrap(
       spacing: 5,
-      runSpacing: 4,
+      runSpacing: AppSpacing.xs,
       alignment: WrapAlignment.end,
       children: [
         if (active != null && isActiveBest) const ActiveOfferMarker(),
@@ -140,31 +147,48 @@ class PanelProductCard extends StatelessWidget {
       return _buildLegacyBestBlock();
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          '${formatCurrencyAbs(best.pricePerUnit)}/${entry.ingredient.unit.label}',
-          style: const TextStyle(
-            color: _colorGold,
-            fontSize: 19,
-            fontWeight: FontWeight.bold,
-          ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Text(
+              '${formatCurrencyAbs(best.pricePerUnit)}/${entry.ingredient.unit.label}',
+              style: AppTypography.number(
+                color: AppColors.gold,
+                fontSize: AppTypography.title,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.s),
+            Expanded(
+              child: Text(
+                '${best.supplier} · ${formatCurrencyAbs(best.packagePrice)} · ${_formatQuantity(best.packageQuantity, entry.ingredient.unit.label)}',
+                style: TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.caption,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            '${best.supplier} · ${formatCurrencyAbs(best.packagePrice)} · ${_formatQuantity(best.packageQuantity, entry.ingredient.unit.label)}',
-            style: const TextStyle(
-              color: Color(0xFFB0BDB7),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+        if (best.hasProductName) ...[
+          const SizedBox(height: 2),
+          Text(
+            'Produto: ${best.productName}',
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
-        ),
+        ],
       ],
     );
   }
@@ -173,9 +197,9 @@ class PanelProductCard extends StatelessWidget {
     final ppu = entry.bestPricePerUnit ?? 0;
     return Text(
       '${formatCurrencyAbs(ppu)}/${entry.ingredient.unit.label}',
-      style: const TextStyle(
-        color: _colorGold,
-        fontSize: 19,
+      style: AppTypography.number(
+        color: AppColors.gold,
+        fontSize: AppTypography.title,
         fontWeight: FontWeight.bold,
       ),
     );
@@ -190,18 +214,24 @@ class PanelProductCard extends StatelessWidget {
     }
 
     if (active != null && best != null && active.id == best.id) {
-      return const Row(
+      return Row(
         children: [
-          Icon(Icons.star, color: _colorGold, size: 12),
-          SizedBox(width: 4),
+          const Icon(Icons.star, color: AppColors.gold, size: 12),
+          const SizedBox(width: AppSpacing.xs),
           Text(
             'também é a melhor — ',
-            style: TextStyle(color: Color(0xFFB0BDB7), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
+            ),
           ),
-          DeltaPriceText(delta: 0),
+          const DeltaPriceText(delta: 0),
           Text(
             ' sem delta',
-            style: TextStyle(color: _colorTextSec, fontSize: 11),
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
+            ),
           ),
         ],
       );
@@ -211,14 +241,20 @@ class PanelProductCard extends StatelessWidget {
       final ing = entry.ingredient;
       return Text(
         'No ticket: preço base · ${formatCurrencyAbs(ing.pricePerUnit)}/${ing.unit.label}',
-        style: const TextStyle(color: Color(0xFFB0BDB7), fontSize: 11),
+        style: TextStyle(
+          color: AppColors.textSec,
+          fontSize: AppTypography.caption,
+        ),
       );
     }
 
     if (best == null) {
       return Text(
         'No ticket: ${active.supplier} · sem comparação',
-        style: const TextStyle(color: Color(0xFFB0BDB7), fontSize: 11),
+        style: TextStyle(
+          color: AppColors.textSec,
+          fontSize: AppTypography.caption,
+        ),
       );
     }
 
@@ -226,21 +262,27 @@ class PanelProductCard extends StatelessWidget {
       label: 'No ticket: ${active.supplier}. paga ${formatCurrencyAbs(entry.deltaVsBest)} por unidade a mais que o melhor preço',
       child: Row(
         children: [
-          const Text(
+          Text(
             'No ticket: ',
-            style: TextStyle(color: Color(0xFFB0BDB7), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
+            ),
           ),
           Text(
             active.supplier,
-            style: const TextStyle(
-              color: Color(0xFFB0BDB7),
-              fontSize: 11,
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
               fontWeight: FontWeight.bold,
             ),
           ),
-          const Text(
+          Text(
             ' · ',
-            style: TextStyle(color: Color(0xFFB0BDB7), fontSize: 11),
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.caption,
+            ),
           ),
           DeltaPriceText(delta: entry.deltaVsBest),
         ],
@@ -252,7 +294,7 @@ class PanelProductCard extends StatelessWidget {
     final others = _otherSuppliers();
     if (others.isEmpty) return const SizedBox.shrink();
     return Wrap(
-      spacing: 8,
+      spacing: AppSpacing.s,
       runSpacing: 6,
       children: others.map(_miniChip).toList(),
     );
@@ -276,16 +318,15 @@ class PanelProductCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(15),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Text(
         '${_abbreviate(s.name)} ${formatCurrencyAbs(s.pricePerUnit)}',
-        style: const TextStyle(
-          color: _colorTextSec,
-          fontSize: 10,
+        style: AppTypography.number(
+          color: AppColors.textSec,
+          fontSize: AppTypography.caption,
           fontWeight: FontWeight.bold,
-          letterSpacing: 0.2,
         ),
       ),
     );
@@ -295,20 +336,20 @@ class PanelProductCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _colorGreen.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _colorGreen.withValues(alpha: 0.4)),
+        color: AppColors.success.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.trending_down, color: _colorGreen, size: 13),
+          const Icon(Icons.trending_down, color: AppColors.success, size: 13),
           const SizedBox(width: 5),
           Text(
             '−${formatCurrencyAbs(entry.deltaVsBest)}/${entry.ingredient.unit.label}',
-            style: const TextStyle(
-              color: _colorGreen,
-              fontSize: 11,
+            style: AppTypography.number(
+              color: AppColors.success,
+              fontSize: AppTypography.caption,
               fontWeight: FontWeight.bold,
             ),
           ),

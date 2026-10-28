@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 /// AppBar padrao do CashCtrl com a logo (camaleao nas cores do app).
 ///
 /// Por padrao mostra o botao de menu (hamburger) e abre o drawer. Em telas
@@ -10,6 +12,7 @@ class AppBrandedHeader extends StatelessWidget implements PreferredSizeWidget {
   final bool showLogo;
   final bool centerTitle;
   final bool showBack;
+  final bool goldLogo;
 
   const AppBrandedHeader({
     super.key,
@@ -17,6 +20,7 @@ class AppBrandedHeader extends StatelessWidget implements PreferredSizeWidget {
     this.showLogo = true,
     this.centerTitle = true,
     this.showBack = false,
+    this.goldLogo = false,
   });
 
   @override
@@ -29,31 +33,51 @@ class AppBrandedHeader extends StatelessWidget implements PreferredSizeWidget {
       elevation: 0,
       leading: showBack
           ? IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
               onPressed: () {
                 if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
+                } else {
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    '/dashboard',
+                    (route) => false,
+                  );
                 }
               },
             )
           : Builder(
               builder: (context) => IconButton(
-                icon: const Icon(Icons.menu, color: Colors.white),
+                icon: Icon(Icons.menu, color: AppColors.textPrimary),
                 onPressed: () => Scaffold.of(context).openDrawer(),
               ),
             ),
       title: title != null
           ? Text(
               title!,
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
             )
-          : Image.asset(
-              'assets/images/logo.png',
-              height: 30,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
-            ),
+          : goldLogo
+              ? ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.gold,
+                    BlendMode.srcIn,
+                  ),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    height: 30,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                )
+              : Image.asset(
+                  'assets/images/logo.png',
+                  height: 30,
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
       centerTitle: centerTitle,
     );
   }

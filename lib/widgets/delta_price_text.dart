@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 
 class DeltaPriceText extends StatelessWidget {
@@ -19,8 +21,8 @@ class DeltaPriceText extends StatelessWidget {
         label: 'sem diferença',
         child: Text(
           '—',
-          style: TextStyle(
-            color: const Color(0xFF7A8B83),
+          style: AppTypography.number(
+            color: AppColors.textSec,
             fontSize: fontSize,
           ),
         ),
@@ -28,7 +30,7 @@ class DeltaPriceText extends StatelessWidget {
     }
 
     final isNegative = delta < 0;
-    final color = isNegative ? Colors.green : Colors.red;
+    final color = isNegative ? AppColors.success : AppColors.danger;
     final sign = isNegative ? '−' : '+';
     final value = formatCurrencyAbs(delta.abs());
     final label = isNegative ? 'economia de $value' : 'aumento de $value';
@@ -37,7 +39,7 @@ class DeltaPriceText extends StatelessWidget {
       label: label,
       child: Text(
         '$sign$value',
-        style: TextStyle(
+        style: AppTypography.number(
           color: color,
           fontSize: fontSize,
           fontWeight: FontWeight.bold,

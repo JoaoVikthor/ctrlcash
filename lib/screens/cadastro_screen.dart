@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -9,6 +8,13 @@ import '../models/app_user.dart';
 import '../providers/user_provider.dart';
 import '../services/auth_service.dart';
 import '../services/storage_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
+import 'settings/terms_privacy_screen.dart';
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -18,11 +24,6 @@ class CadastroScreen extends StatefulWidget {
 }
 
 class _CadastroScreenState extends State<CadastroScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   final PageController _pageController = PageController();
   int _currentStep = 0;
   bool _isLoading = false;
@@ -40,8 +41,14 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final TextEditingController _telefoneController = TextEditingController();
   final TextEditingController _enderecoController = TextEditingController();
   String? _photoUrl;
-  File? _pendingPhotoFile;
+  Uint8List? _pendingPhotoBytes;
   bool _uploadingPhoto = false;
+
+  String? _nomeError;
+  String? _emailError;
+  String? _senhaError;
+  String? _confirmaError;
+  String? _empresaError;
 
   static const int _totalSteps = 2;
 
@@ -60,33 +67,63 @@ class _CadastroScreenState extends State<CadastroScreen> {
     super.dispose();
   }
 
+  void _clearNomeError() {
+    if (_nomeError != null) setState(() => _nomeError = null);
+  }
+
+  void _clearEmailError() {
+    if (_emailError != null) setState(() => _emailError = null);
+  }
+
+  void _clearSenhaError() {
+    if (_senhaError != null) setState(() => _senhaError = null);
+  }
+
+  void _clearConfirmaError() {
+    if (_confirmaError != null) setState(() => _confirmaError = null);
+  }
+
+  void _clearEmpresaError() {
+    if (_empresaError != null) setState(() => _empresaError = null);
+  }
+
   bool _validarEtapa1() {
-    final String nome = _nomeController.text.trim();
-    final String email = _emailController.text.trim();
-    final String senha = _senhaController.text;
-    final String confirma = _confirmaController.text;
+    setState(() {
+      _nomeError = null;
+      _emailError = null;
+      _senhaError = null;
+      _confirmaError = null;
+    });
+
+    final nome = _nomeController.text.trim();
+    final email = _emailController.text.trim();
+    final senha = _senhaController.text;
+    final confirma = _confirmaController.text;
+    bool valid = true;
 
     if (nome.isEmpty) {
-      _mostrarErro('Informe o nome completo.');
-      return false;
+      _nomeError = 'Informe o nome completo.';
+      valid = false;
     }
     if (email.isEmpty || !email.contains('@')) {
-      _mostrarErro('Informe um e-mail válido.');
-      return false;
+      _emailError = 'Informe um e-mail válido.';
+      valid = false;
     }
     if (senha.length < 6) {
-      _mostrarErro('A senha deve ter ao menos 6 caracteres.');
-      return false;
+      _senhaError = 'A senha deve ter ao menos 6 caracteres.';
+      valid = false;
     }
     if (senha != confirma) {
-      _mostrarErro('As senhas não coincidem.');
-      return false;
+      _confirmaError = 'As senhas não coincidem.';
+      valid = false;
     }
     if (!_aceitouTermos) {
       _mostrarErro('É preciso aceitar os Termos de Uso.');
-      return false;
+      valid = false;
     }
-    return true;
+
+    if (!valid) setState(() {});
+    return valid;
   }
 
   void _avancar() {
@@ -114,7 +151,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Future<void> _finalizarCadastro() async {
     if (_empresaController.text.trim().isEmpty) {
-      _mostrarErro('Informe o nome da empresa.');
+      setState(() => _empresaError = 'Informe o nome da empresa.');
       return;
     }
 
@@ -145,13 +182,14 @@ class _CadastroScreenState extends State<CadastroScreen> {
             userProfile: appUser,
             password: _senhaController.text,
           );
-      if (_pendingPhotoFile != null && mounted) {
+      if (_pendingPhotoBytes != null && mounted) {
         try {
-          final photoUrl = await context.read<StorageService>().uploadFile(
+          final photoUrl = await context.read<StorageService>().uploadBytes(
                 uid: user.uid,
                 path:
                     'business_photos/${DateTime.now().millisecondsSinceEpoch}.jpg',
-                file: _pendingPhotoFile!,
+                bytes: _pendingPhotoBytes!,
+                contentType: 'image/jpeg',
               );
           if (photoUrl != null) {
             final updated = AppUser(
@@ -168,24 +206,21 @@ class _CadastroScreenState extends State<CadastroScreen> {
             if (!mounted) return;
             await context.read<UserProvider>().saveUser(updated);
           }
-        } catch (_) {}
+        } catch (e) {
+          if (mounted) AppToast.error(context, 'Erro ao enviar foto: $e');
+        }
       }
       if (!mounted) return;
       await context.read<UserProvider>().loadProfile(user.uid);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Cadastro realizado com sucesso!'),
-          backgroundColor: _colorGreenPrimary,
-        ),
-      );
+      AppToast.success(context, 'Cadastro realizado com sucesso!');
       Navigator.pushNamedAndRemoveUntil(context, '/dashboard', (r) => false);
     } on AuthException catch (e) {
       _mostrarErro(e.message);
     } on FirebaseAuthException catch (e) {
       _mostrarErro(_mapFirebaseError(e));
-    } catch (_) {
-      _mostrarErro('Ocorreu um erro ao finalizar o cadastro.');
+    } catch (e) {
+      _mostrarErro('Não foi possível concluir o cadastro: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -193,9 +228,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   void _mostrarErro(String mensagem) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem), backgroundColor: Colors.red.shade700),
-    );
+    AppToast.error(context, mensagem);
   }
 
   String _mapFirebaseError(FirebaseAuthException e) {
@@ -214,26 +247,30 @@ class _CadastroScreenState extends State<CadastroScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: _isLoading ? null : _voltar,
         ),
-        title: const Text(
+        title: Text(
           'Criar Conta',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.section,
+            fontWeight: FontWeight.w700,
+          ),
         ),
         centerTitle: true,
       ),
       body: SafeArea(
         child: Column(
           children: [
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.s),
             _buildStepIndicator(),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.m),
             Expanded(
               child: PageView(
                 controller: _pageController,
@@ -254,23 +291,23 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Widget _buildStepIndicator() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
       child: Row(
         children: List.generate(_totalSteps, (index) {
-          final bool active = index == _currentStep;
-          final bool done = index < _currentStep;
+          final active = index == _currentStep;
+          final done = index < _currentStep;
           return Expanded(
             child: Container(
               margin: EdgeInsets.only(
-                  right: index == _totalSteps - 1 ? 0 : 8),
+                  right: index == _totalSteps - 1 ? 0 : AppSpacing.s),
               height: 6,
               decoration: BoxDecoration(
                 color: done
-                    ? _colorGreenPrimary
+                    ? AppColors.greenPrimary
                     : active
-                        ? _colorGold
-                        : Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(3),
+                        ? AppColors.gold
+                        : AppColors.border,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
             ),
           );
@@ -281,59 +318,122 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Widget _buildEtapaDadosPessoais() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xxl,
+        vertical: AppSpacing.l,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionTitle('Dados Pessoais', 'Conte-nos quem é você.'),
-          const SizedBox(height: 20),
-          _buildField(
-              controller: _nomeController,
-              label: 'Nome completo',
-              icon: Icons.person_outline),
-          const SizedBox(height: 14),
-          _buildField(
-              controller: _emailController,
-              label: 'E-mail',
-              icon: Icons.mail_outline,
-              keyboardType: TextInputType.emailAddress),
-          const SizedBox(height: 14),
-          _buildField(
+          const SizedBox(height: AppSpacing.xl),
+          AppTextField(
+            controller: _nomeController,
+            label: 'Nome completo',
+            textInputAction: TextInputAction.next,
+            errorText: _nomeError,
+            onChanged: (_) => _clearNomeError(),
+          ),
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
+            controller: _emailController,
+            label: 'E-mail',
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            errorText: _emailError,
+            onChanged: (_) => _clearEmailError(),
+          ),
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
             controller: _senhaController,
             label: 'Senha',
-            icon: Icons.lock_outline,
-            obscure: _obscureSenha,
-            toggleObscure: () =>
-                setState(() => _obscureSenha = !_obscureSenha),
+            obscureText: _obscureSenha,
+            textInputAction: TextInputAction.next,
+            errorText: _senhaError,
+            onChanged: (_) => _clearSenhaError(),
+            suffix: IconButton(
+              icon: Icon(
+                _obscureSenha
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: AppColors.textSec,
+                size: 20,
+              ),
+              onPressed: () => setState(
+                () => _obscureSenha = !_obscureSenha,
+              ),
+            ),
           ),
-          const SizedBox(height: 14),
-          _buildField(
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
             controller: _confirmaController,
             label: 'Confirmação de senha',
-            icon: Icons.lock_outline,
-            obscure: _obscureConfirma,
-            toggleObscure: () =>
-                setState(() => _obscureConfirma = !_obscureConfirma),
+            obscureText: _obscureConfirma,
+            textInputAction: TextInputAction.done,
+            errorText: _confirmaError,
+            onChanged: (_) => _clearConfirmaError(),
+            suffix: IconButton(
+              icon: Icon(
+                _obscureConfirma
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: AppColors.textSec,
+                size: 20,
+              ),
+              onPressed: () => setState(
+                () => _obscureConfirma = !_obscureConfirma,
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpacing.l),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Checkbox(
                 value: _aceitouTermos,
                 onChanged: (v) => setState(() => _aceitouTermos = v ?? false),
-                activeColor: _colorGreenPrimary,
-                checkColor: Colors.white,
-                side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+                activeColor: AppColors.greenPrimary,
+                checkColor: AppColors.textPrimary,
+                side: const BorderSide(color: AppColors.textSec),
               ),
               Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(
-                      () => _aceitouTermos = !_aceitouTermos),
-                  child: const Text(
-                    'Aceito os Termos de Uso',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                  ),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: () => setState(
+                          () => _aceitouTermos = !_aceitouTermos),
+                      child: Text(
+                        'Aceito os ',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: AppTypography.body,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const TermsPrivacyScreen()),
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Termos de Uso',
+                        style: TextStyle(
+                          color: AppColors.gold,
+                          fontSize: AppTypography.body,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -345,42 +445,52 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Widget _buildEtapaNegocio() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xxl,
+        vertical: AppSpacing.l,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionTitle('Sobre o Negócio', 'Informações da sua empresa.'),
-          const SizedBox(height: 20),
-          _buildField(
-              controller: _empresaController,
-              label: 'Nome da Empresa',
-              icon: Icons.store_outlined),
-          const SizedBox(height: 14),
-          _buildField(
-              controller: _cnpjController,
-              label: 'CNPJ (Opcional)',
-              icon: Icons.badge_outlined,
-              keyboardType: TextInputType.number),
-          const SizedBox(height: 14),
-          _buildField(
-              controller: _segmentoController,
-              label: 'Segmento',
-              icon: Icons.category_outlined),
-          const SizedBox(height: 14),
-          _buildField(
-              controller: _telefoneController,
-              label: 'Telefone Comercial',
-              icon: Icons.phone_outlined,
-              keyboardType: TextInputType.phone),
-          const SizedBox(height: 14),
-          _buildField(
-              controller: _enderecoController,
-              label: 'Endereço',
-              icon: Icons.location_on_outlined,
-              maxLines: 2),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.xl),
+          AppTextField(
+            controller: _empresaController,
+            label: 'Nome da Empresa',
+            textInputAction: TextInputAction.next,
+            errorText: _empresaError,
+            onChanged: (_) => _clearEmpresaError(),
+          ),
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
+            controller: _cnpjController,
+            label: 'CNPJ (Opcional)',
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
+            controller: _segmentoController,
+            label: 'Segmento',
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
+            controller: _telefoneController,
+            label: 'Telefone Comercial',
+            keyboardType: TextInputType.phone,
+            textInputAction: TextInputAction.next,
+          ),
+          const SizedBox(height: AppSpacing.m),
+          AppTextField(
+            controller: _enderecoController,
+            label: 'Endereço',
+            textInputAction: TextInputAction.done,
+            maxLines: 2,
+          ),
+          const SizedBox(height: AppSpacing.l),
           _buildAddPhoto(),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.s),
         ],
       ),
     );
@@ -388,40 +498,53 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Widget _buildAddPhoto() {
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       onTap: _isLoading || _uploadingPhoto ? null : _pickPhoto,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        padding: const EdgeInsets.symmetric(
+          vertical: AppSpacing.xl,
+          horizontal: AppSpacing.l,
+        ),
         decoration: BoxDecoration(
-          color: _colorCard,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: Colors.white.withValues(alpha: 0.08), width: 1),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(color: AppColors.border),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_pendingPhotoFile != null) ...[
+            if (_pendingPhotoBytes != null) ...[
               ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.file(_pendingPhotoFile!,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                child: Image.memory(_pendingPhotoBytes!,
                     height: 72, width: 72, fit: BoxFit.cover),
               ),
-              const SizedBox(height: 8),
-              const Text('Foto capturada',
-                  style: TextStyle(
-                      color: _colorGreenPrimary,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              const Text('Toque para trocar',
-                  style: TextStyle(color: _colorGold, fontSize: 12)),
+              const SizedBox(height: AppSpacing.s),
+              Text(
+                'Foto capturada',
+                style: TextStyle(
+                  color: AppColors.greenPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Toque para trocar',
+                style: TextStyle(
+                  color: AppColors.gold,
+                  fontSize: AppTypography.secondary,
+                ),
+              ),
             ] else ...[
-              const Icon(Icons.add_a_photo_outlined, color: _colorGold),
-              const SizedBox(height: 8),
-              const Text(
+              const Icon(Icons.add_a_photo_outlined, color: AppColors.gold),
+              const SizedBox(height: AppSpacing.s),
+              Text(
                 'Adicionar foto da empresa',
                 style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w600),
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.body,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ],
@@ -432,10 +555,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final xFile = await picker.pickImage(source: ImageSource.camera);
+    final xFile = await picker.pickImage(
+      source: kIsWeb ? ImageSource.gallery : ImageSource.camera,
+    );
     if (xFile == null) return;
+    final bytes = await xFile.readAsBytes();
     setState(() {
-      _pendingPhotoFile = File(xFile.path);
+      _pendingPhotoBytes = bytes;
       _uploadingPhoto = false;
     });
   }
@@ -446,105 +572,64 @@ class _CadastroScreenState extends State<CadastroScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.title,
+            fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           subtitle,
-          style: const TextStyle(color: Colors.grey, fontSize: 13),
+          style: TextStyle(
+            color: AppColors.textSec,
+            fontSize: AppTypography.secondary,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool obscure = false,
-    TextInputType keyboardType = TextInputType.text,
-    int maxLines = 1,
-    VoidCallback? toggleObscure,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      maxLines: obscure ? 1 : maxLines,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon, color: _colorGold, size: 20),
-        suffixIcon: toggleObscure != null
-            ? IconButton(
-                icon: Icon(
-                  obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                  color: Colors.grey,
-                  size: 20,
-                ),
-                onPressed: toggleObscure,
-              )
-            : null,
-        filled: true,
-        fillColor: _colorCard,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
-        ),
-      ),
-    );
-  }
-
   Widget _buildBottomActions() {
-    final bool isLast = _currentStep == _totalSteps - 1;
+    final isLast = _currentStep == _totalSteps - 1;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xxl,
+        AppSpacing.s,
+        AppSpacing.xxl,
+        AppSpacing.xxl,
+      ),
       child: Row(
         children: [
           TextButton(
             onPressed: _isLoading ? null : _voltar,
             child: Text(
               _currentStep == 0 ? 'Cancelar' : 'Voltar',
-              style: const TextStyle(color: _colorGold),
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: AppTypography.body,
+              ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpacing.m),
           Expanded(
             child: ElevatedButton(
               onPressed: _isLoading ? null : _avancar,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _colorGreenPrimary,
-                disabledBackgroundColor:
-                    _colorGreenPrimary.withValues(alpha: 0.5),
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
               child: _isLoading
                   ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                         strokeWidth: 2,
                       ),
                     )
                   : Text(
                       isLast ? 'Finalizar Cadastro' : 'Próximo',
                       style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                        fontSize: AppTypography.section,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
             ),

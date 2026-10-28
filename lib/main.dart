@@ -12,6 +12,7 @@ import 'models/transaction.dart';
 import 'models/ingredient.dart';
 import 'services/auth_service.dart';
 import 'services/firestore_service.dart';
+import 'services/notification_service.dart';
 import 'services/storage_service.dart';
 import 'providers/user_provider.dart';
 import 'providers/transaction_provider.dart';
@@ -27,7 +28,6 @@ import 'screens/ingredient_form_screen.dart';
 import 'screens/products_screen.dart';
 import 'screens/product_form_screen.dart';
 import 'screens/product_detail_screen.dart';
-import 'screens/product_scanner_screen.dart';
 import 'screens/ingredient_offers_screen.dart';
 import 'screens/offer_form_screen.dart';
 import 'screens/audit_logs_screen.dart';
@@ -37,6 +37,8 @@ import 'screens/settings/edit_profile_screen.dart';
 import 'screens/settings/notifications_screen.dart';
 import 'screens/settings/security_screen.dart';
 import 'screens/settings/help_screen.dart';
+import 'theme/app_colors.dart';
+import 'theme/app_theme.dart';
 import 'home_screen.dart';
 import 'budgets_screen.dart';
 import 'expenses_screen.dart';
@@ -48,9 +50,7 @@ Future<void> main() async {
 
   await dotenv.load(fileName: ".env");
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(const CashCtrlApp());
 }
@@ -58,33 +58,31 @@ Future<void> main() async {
 class CashCtrlApp extends StatelessWidget {
   const CashCtrlApp({super.key});
 
+  static bool _notificationsInitialized = false;
+
   @override
   Widget build(BuildContext context) {
+    if (!_notificationsInitialized) {
+      _notificationsInitialized = true;
+      _initializeNotifications();
+    }
     return MultiProvider(
       providers: [
-        Provider<AuthService>(
-          create: (_) => AuthService(),
-        ),
+        Provider<AuthService>(create: (_) => AuthService()),
+        Provider<StorageService>(create: (_) => StorageService()),
         Provider<FirestoreService>(
-          create: (_) => FirestoreService(),
-        ),
-        Provider<StorageService>(
-          create: (_) => StorageService(),
+          create: (context) =>
+              FirestoreService(storage: context.read<StorageService>()),
         ),
         StreamProvider<User?>(
-          create: (context) =>
-              context.read<AuthService>().authStateChanges,
+          create: (context) => context.read<AuthService>().authStateChanges,
           initialData: null,
         ),
-        ChangeNotifierProvider<UserProvider>(
-          create: (_) => UserProvider(),
-        ),
+        ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider()),
         ChangeNotifierProvider<TransactionProvider>(
           create: (_) => TransactionProvider(),
         ),
-        ChangeNotifierProvider<BudgetProvider>(
-          create: (_) => BudgetProvider(),
-        ),
+        ChangeNotifierProvider<BudgetProvider>(create: (_) => BudgetProvider()),
         ChangeNotifierProvider<IngredientProvider>(
           create: (_) => IngredientProvider(),
         ),
@@ -95,55 +93,51 @@ class CashCtrlApp extends StatelessWidget {
       child: MaterialApp(
         title: 'CashCtrl',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          scaffoldBackgroundColor: const Color(0xFF0D1E16),
-          colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF165A41),
-            secondary: Color(0xFFB89775),
-          ),
-        ),
+        theme: AppTheme.dark(),
         routes: {
           '/login': (context) => const LoginScreen(),
           '/cadastro': (context) => const CadastroScreen(),
           '/dashboard': (context) => const HomeScreen(),
           '/budgets': (context) => const BudgetsScreen(),
-          '/budget-form': (context) =>
-              BudgetFormScreen(editing: ModalRoute.of(context)?.settings.arguments as Budget?),
+          '/budget-form': (context) => BudgetFormScreen(
+            editing: ModalRoute.of(context)?.settings.arguments as Budget?,
+          ),
           '/expenses': (context) => const ExpensesScreen(),
-          '/transaction-form': (context) =>
-              TransactionFormScreen(editing: ModalRoute.of(context)?.settings.arguments as AppTransaction?),
+          '/transaction-form': (context) => TransactionFormScreen(
+            editing:
+                ModalRoute.of(context)?.settings.arguments as AppTransaction?,
+          ),
           '/reports': (context) => const ReportsScreen(),
           '/ingredients': (context) => const IngredientsScreen(),
-          '/ingredient-form': (context) =>
-              IngredientFormScreen(editing: ModalRoute.of(context)?.settings.arguments as Ingredient?),
+          '/ingredient-form': (context) => IngredientFormScreen(
+            editing: ModalRoute.of(context)?.settings.arguments as Ingredient?,
+          ),
           '/products': (context) => const ProductsScreen(),
           '/product-form': (context) {
             final id = ModalRoute.of(context)?.settings.arguments as String?;
             return ProductFormScreen(
-                editing: id == null
-                    ? null
-                    : context.read<ProductProvider>().list
+              editing: id == null
+                  ? null
+                  : context
+                        .read<ProductProvider>()
+                        .list
                         .where((p) => p.id == id)
-                        .firstOrNull);
+                        .firstOrNull,
+            );
           },
           '/product-detail': (context) => const ProductDetailScreen(),
-          '/product-scanner': (context) => const ProductScannerScreen(),
-          '/product-form-with-barcode': (context) => ProductFormScreen(
-              initialBarcode:
-                  ModalRoute.of(context)?.settings.arguments as String?),
-          '/product-form-with-photo': (context) => ProductFormScreen(
-              initialPhotoUrl:
-                  ModalRoute.of(context)?.settings.arguments as String?),
           '/settings': (context) => const SettingsScreen(),
           '/settings/profile': (context) => const EditProfileScreen(),
           '/settings/notifications': (context) => const NotificationsScreen(),
           '/settings/security': (context) => const SecurityScreen(),
           '/settings/help': (context) => const HelpScreen(),
           '/ingredient-offers': (context) => IngredientOffersScreen(
-              ingredientId: ModalRoute.of(context)?.settings.arguments as String),
+            ingredientId: ModalRoute.of(context)?.settings.arguments as String,
+          ),
           '/offer-form': (context) {
-            final map = ModalRoute.of(context)?.settings.arguments
-                as Map<String, dynamic>?;
+            final map =
+                ModalRoute.of(context)?.settings.arguments
+                    as Map<String, dynamic>?;
             return OfferFormScreen(
               ingredientId: (map?['ingredientId'] ?? '') as String,
               offer: map?['offer'] as IngredientOffer?,
@@ -155,6 +149,12 @@ class CashCtrlApp extends StatelessWidget {
         home: const AuthGate(),
       ),
     );
+  }
+
+  void _initializeNotifications() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.instance.initialize();
+    });
   }
 }
 
@@ -178,8 +178,8 @@ class _AuthGateState extends State<AuthGate> {
     final UserProvider userProvider = context.read<UserProvider>();
     final TransactionProvider txProvider = context.read<TransactionProvider>();
     final BudgetProvider budgetProvider = context.read<BudgetProvider>();
-    final IngredientProvider ingredientProvider =
-        context.read<IngredientProvider>();
+    final IngredientProvider ingredientProvider = context
+        .read<IngredientProvider>();
     final ProductProvider productProvider = context.read<ProductProvider>();
     if (!_linked) {
       txProvider.attach(userProvider);
@@ -191,6 +191,7 @@ class _AuthGateState extends State<AuthGate> {
     _sub = authService.authStateChanges.listen((User? user) {
       if (user == null) {
         userProvider.limpar();
+        NotificationService.instance.cancelAll();
       } else {
         userProvider.setUsuario(user.uid);
       }
@@ -211,9 +212,9 @@ class _AuthGateState extends State<AuthGate> {
   Widget build(BuildContext context) {
     if (_waiting) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0D1E16),
+        backgroundColor: AppColors.background,
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFB89775)),
+          child: CircularProgressIndicator(color: AppColors.gold),
         ),
       );
     }

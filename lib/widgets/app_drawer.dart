@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+import '../utils/app_info.dart';
+
 class AppDrawer extends StatelessWidget {
   final String currentRoute;
 
   const AppDrawer({super.key, required this.currentRoute});
 
-  static const Color _colorDrawerBg = Color(0xFF142A20);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-
   static const List<_DrawerEntry> _items = [
     _DrawerEntry(icon: Icons.dashboard_outlined, label: 'Dashboard', route: '/dashboard'),
-    _DrawerEntry(icon: Icons.lunch_dining_outlined, label: 'Produtos', route: '/products'),
-    _DrawerEntry(icon: Icons.inventory_2_outlined, label: 'Insumos', route: '/ingredients'),
-    _DrawerEntry(icon: Icons.compare_arrows_outlined, label: 'Comparar preços', route: '/compare-prices'),
-    _DrawerEntry(icon: Icons.history_outlined, label: 'Histórico de preços', route: '/audit-logs'),
+    _DrawerEntry(icon: Icons.inventory_2_outlined, label: 'Produtos', route: '/ingredients'),
+    _DrawerEntry(icon: Icons.restaurant_menu_outlined, label: 'Fichas Técnicas', route: '/products'),
     _DrawerEntry(icon: Icons.account_balance_outlined, label: 'Orçamentos', route: '/budgets'),
     _DrawerEntry(icon: Icons.receipt_long_outlined, label: 'Transações', route: '/expenses'),
     _DrawerEntry(icon: Icons.bar_chart_outlined, label: 'Relatórios', route: '/reports'),
@@ -23,29 +23,44 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String normalizedRoute =
+    final normalizedRoute =
         currentRoute.startsWith('/') ? currentRoute : '/$currentRoute';
     return Drawer(
-      backgroundColor: _colorDrawerBg,
+      backgroundColor: AppColors.card,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildHeader(context),
-            const Divider(color: Color(0xFF1F3A2C), thickness: 1, height: 1),
+            const Divider(
+              color: AppColors.border,
+              thickness: 1,
+              height: 1,
+            ),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.s,
+                  horizontal: AppSpacing.m,
+                ),
                 children: _items
                     .map((item) => _drawerTile(context, item, normalizedRoute))
                     .toList(growable: false),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.s,
+                AppSpacing.xl,
+                AppSpacing.xxl,
+              ),
               child: Text(
-                'CashCtrl v1.0.0',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
+                '${AppInfo.appName} ${AppInfo.version}',
+                style: TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.secondary,
+                ),
               ),
             ),
           ],
@@ -56,40 +71,51 @@ class AppDrawer extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 28, 12, 20),
-child: Row(
-          children: [
-            Image.asset(
-              'assets/images/logo_drawer.png',
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) =>
-                  const Icon(Icons.ac_unit, color: _colorGold, size: 28),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.xxl,
+        AppSpacing.m,
+        AppSpacing.xl,
+      ),
+      child: Row(
+        children: [
+          Image.asset(
+            'assets/images/logo_drawer.png',
+            width: 40,
+            height: 40,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) => const Icon(
+              Icons.account_circle_outlined,
+              color: AppColors.gold,
+              size: 28,
             ),
-            const SizedBox(width: 14),
-          const Expanded(
+          ),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'CashCtrl',
                   style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.title,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Adaptar. Resolver. Desenvolver.',
-                  style: TextStyle(color: _colorGold, fontSize: 12),
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontSize: AppTypography.secondary,
+                  ),
                 ),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
+            icon: Icon(Icons.close, color: AppColors.textPrimary),
             tooltip: 'Fechar',
             onPressed: () => Navigator.pop(context),
           ),
@@ -99,33 +125,50 @@ child: Row(
   }
 
   Widget _drawerTile(BuildContext context, _DrawerEntry entry, String current) {
-    final bool isSelected = current == entry.route;
+    final isSelected = current == entry.route;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       decoration: BoxDecoration(
-        color: isSelected ? _colorGreenPrimary : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        color: isSelected ? AppColors.greenPrimary : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
-      child: ListTile(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        leading: Icon(
-          entry.icon,
-          color: isSelected ? Colors.white : _colorGold,
-        ),
-        title: Text(
-          entry.label,
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 48,
+            decoration: BoxDecoration(
+              color: isSelected ? AppColors.gold : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+            ),
           ),
-        ),
-        onTap: () {
-          Navigator.pop(context);
-          if (!isSelected) {
-            Navigator.pushReplacementNamed(context, entry.route);
-          }
-        },
+          Expanded(
+            child: ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              leading: Icon(
+                entry.icon,
+                color: isSelected ? AppColors.textPrimary : AppColors.gold,
+              ),
+              title: Text(
+                entry.label,
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontWeight:
+                      isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                if (!isSelected) {
+                  Navigator.pushReplacementNamed(context, entry.route);
+                }
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

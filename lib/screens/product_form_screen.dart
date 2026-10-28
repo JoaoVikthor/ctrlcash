@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -8,20 +9,23 @@ import '../providers/ingredient_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/user_provider.dart';
 import '../services/storage_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/product_calculator.dart';
 import '../utils/unit_converter.dart';
-import 'dart:io';
+import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
+import '../widgets/search_field.dart';
 
 class ProductFormScreen extends StatefulWidget {
   final Product? editing;
-  final String? initialBarcode;
   final String? initialPhotoUrl;
 
   const ProductFormScreen({
     super.key,
     this.editing,
-    this.initialBarcode,
     this.initialPhotoUrl,
   });
 
@@ -30,23 +34,18 @@ class ProductFormScreen extends StatefulWidget {
 }
 
 class _ProductFormScreenState extends State<ProductFormScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _saleController = TextEditingController();
   final TextEditingController _laborController = TextEditingController();
   final TextEditingController _packController = TextEditingController();
-  final TextEditingController _barcodeController = TextEditingController();
   final List<RecipeItem> _recipe = [];
   final List<TextEditingController> _qtyControllers = [];
   bool _saving = false;
   String? _photoUrl;
   bool _uploadingPhoto = false;
   final List<String> _recipeInputUnits = [];
+  String _pickerQuery = '';
 
   @override
   void initState() {
@@ -61,7 +60,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           e.laborCost.toStringAsFixed(2).replaceAll('.', ',');
       _packController.text =
           e.packagingCost.toStringAsFixed(2).replaceAll('.', ',');
-      _barcodeController.text = e.barcode ?? '';
       _photoUrl = e.photoUrl;
       for (final r in e.recipe) {
         _recipe.add(r);
@@ -72,7 +70,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     } else {
       _laborController.text = '0,00';
       _packController.text = '0,00';
-      _barcodeController.text = widget.initialBarcode ?? '';
       _photoUrl = widget.initialPhotoUrl;
     }
   }
@@ -84,7 +81,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     _saleController.dispose();
     _laborController.dispose();
     _packController.dispose();
-    _barcodeController.dispose();
     for (final c in _qtyControllers) {
       c.dispose();
     }
@@ -120,14 +116,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     return !result.converted && result.unit != ing.unit.label;
   }
 
-  void _toast(String msg, {Color color = Colors.red}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: color));
+  void _toast(String msg) {
+    AppToast.error(context, msg);
   }
 
   void _addIngredient(Ingredient ing) {
     if (_recipe.any((r) => r.ingredientId == ing.id)) {
-      _toast('Este insumo já foi adicionado.');
+      _toast('Este produto já foi adicionado.');
       return;
     }
     setState(() {
@@ -151,7 +146,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   bool _validate() {
     if (_nameController.text.trim().isEmpty) {
-      _toast('Informe o nome do produto.');
+      _toast('Informe o nome da ficha técnica.');
       return false;
     }
     final sale = _parse(_saleController);
@@ -160,7 +155,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       return false;
     }
     if (_recipe.isEmpty) {
-      _toast('Adicione ao menos um ingrediente à receita.');
+      _toast('Adicione ao menos um produto à receita.');
       return false;
     }
     return true;
@@ -190,9 +185,6 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         packagingCost: _parse(_packController),
         salePrice: _parse(_saleController),
         photoUrl: _photoUrl,
-        barcode: _barcodeController.text.trim().isEmpty
-            ? null
-            : _barcodeController.text.trim(),
         createdAt: widget.editing?.createdAt ?? DateTime.now(),
       );
       final prov = context.read<ProductProvider>();
@@ -202,14 +194,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         await prov.updateProduct(p);
       }
       if (!mounted) return;
+      AppToast.success(
+          context,
+          widget.editing == null
+              ? 'Ficha técnica criada!'
+              : 'Ficha técnica atualizada!');
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(widget.editing == null
-                ? 'Ficha técnica criada!'
-                : 'Ficha técnica atualizada!'),
-            backgroundColor: _colorGreenPrimary),
-      );
     } catch (e) {
       if (!mounted) return;
       _toast('Erro ao salvar: $e');
@@ -227,7 +217,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     final preview = Product(
       id: widget.editing?.id ?? '__preview__',
       name: _nameController.text.trim().isEmpty
-          ? 'Produto'
+          ? 'Ficha técnica'
           : _nameController.text.trim(),
       description: _descController.text.trim(),
       recipe: recipe,
@@ -243,18 +233,18 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.editing != null;
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          isEdit ? 'Editar Ficha Técnica' : 'Nova Ficha Técnica',
+          isEdit ? 'Editar Ficha' : 'Nova Ficha Técnica',
           style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
+              color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -262,7 +252,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         builder: (context, ip, _) {
           if (ip.loading) {
             return const Center(
-                child: CircularProgressIndicator(color: _colorGold));
+                child: CircularProgressIndicator(color: AppColors.gold));
           }
           if (ip.list.isEmpty) {
             return _buildNoIngredients();
@@ -272,7 +262,7 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _field(_nameController, 'Nome do produto',
+                _field(_nameController, 'Nome da ficha técnica',
                     Icons.lunch_dining_outlined),
                 const SizedBox(height: 14),
                 _field(_descController, 'Descrição (opcional)',
@@ -284,9 +274,10 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true)),
                 const SizedBox(height: 16),
-                _buildPhotoAndBarcode(),
+                _buildPhoto(),
                 const SizedBox(height: 8),
-                _buildSectionTitle('Ingredientes', Icons.restaurant_menu),
+                _buildSectionTitle(
+                    'Produtos da receita', Icons.restaurant_menu),
                 const SizedBox(height: 10),
                 _buildAddIngredientButton(ip.list),
                 const SizedBox(height: 12),
@@ -296,9 +287,11 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
                     child: Text(
-                        'Nenhum ingrediente adicionado. Toque em "Adicionar ingrediente".',
+                        'Nenhum produto adicionado. Toque em "Adicionar produto".',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white38, fontSize: 12)),
+                        style: TextStyle(
+                            color: AppColors.textTertiary,
+                            fontSize: AppTypography.secondary)),
                   ),
                 const SizedBox(height: 20),
                 _buildSectionTitle('Custos extras', Icons.add_circle_outline),
@@ -338,20 +331,24 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.inventory_2_outlined,
-                size: 48, color: Colors.white38),
+                size: 48, color: AppColors.textTertiary),
             const SizedBox(height: 12),
-            const Text('Cadastre insumos primeiro',
-                style: TextStyle(color: Colors.white)),
+            Text('Cadastre produtos primeiro',
+                style: TextStyle(color: AppColors.textPrimary)),
             const SizedBox(height: 4),
-            const Text('Você precisa de insumos para montar a ficha técnica.',
+            const Text(
+                'Você precisa de produtos para montar a ficha técnica.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white38, fontSize: 12)),
+                style: TextStyle(
+                    color: AppColors.textTertiary,
+                    fontSize: AppTypography.secondary)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => Navigator.pushReplacementNamed(context, '/ingredients'),
+              onPressed: () =>
+                  Navigator.pushReplacementNamed(context, '/ingredients'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: _colorGreenPrimary),
-              child: const Text('Ir para Insumos',
+                  backgroundColor: AppColors.greenPrimary),
+              child: const Text('Ir para Produtos',
                   style: TextStyle(color: Colors.white)),
             ),
           ],
@@ -363,21 +360,22 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: _colorGold, size: 18),
+        Icon(icon, color: AppColors.gold, size: 18),
         const SizedBox(width: 8),
         Text(title,
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold)),
       ],
     );
   }
 
-  Widget _buildPhotoAndBarcode() {
+  Widget _buildPhoto() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 10),
-        _buildSectionTitle('Foto e identificação', Icons.qr_code),
+        _buildSectionTitle('Foto do produto', Icons.photo_outlined),
         const SizedBox(height: 10),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -388,39 +386,35 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
                 width: 96,
                 height: 96,
                 decoration: BoxDecoration(
-                  color: _colorCard,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
                   border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08)),
+                      color: AppColors.textPrimary.withValues(alpha: 0.08)),
                 ),
                 child: _uploadingPhoto
                     ? const Center(
                         child: CircularProgressIndicator(
-                            color: _colorGold, strokeWidth: 2))
+                            color: AppColors.gold, strokeWidth: 2))
                     : _photoUrl != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(AppRadius.md),
                             child: Image.network(_photoUrl!,
                                 fit: BoxFit.cover),
                           )
-                        : const Column(
+                        : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_a_photo_outlined,
-                                  color: _colorGold, size: 28),
-                              SizedBox(height: 4),
+                              const Icon(Icons.add_a_photo_outlined,
+                                  color: AppColors.gold, size: 28),
+                              const SizedBox(height: 4),
                               Text('Adicionar foto',
                                   style: TextStyle(
-                                      color: Colors.white54, fontSize: 10)),
+                                      color: AppColors.textPrimary
+                                          .withValues(alpha: 0.7),
+                                      fontSize: AppTypography.caption)),
                             ],
                           ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _field(_barcodeController, 'Código de barras (opcional)',
-                  Icons.qr_code_2,
-                  keyboardType: TextInputType.number),
             ),
           ],
         ),
@@ -431,24 +425,26 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Future<void> _pickProductPhoto() async {
     final userUid = context.read<UserProvider>().uid;
     final storage = context.read<StorageService>();
-    final messenger = ScaffoldMessenger.of(context);
     final picker = ImagePicker();
-    final xFile = await picker.pickImage(source: ImageSource.camera);
+    final xFile = await picker.pickImage(
+      source: kIsWeb ? ImageSource.gallery : ImageSource.camera,
+    );
     if (xFile == null) return;
     setState(() => _uploadingPhoto = true);
     try {
       if (userUid == null) throw StateError('Usuário não autenticado.');
-      final url = await storage.uploadFile(
-            uid: userUid,
-            path:
-                'product_photos/${DateTime.now().millisecondsSinceEpoch}.jpg',
-            file: File(xFile.path),
-          );
+      final bytes = await xFile.readAsBytes();
+      final url = await storage.uploadBytes(
+        uid: userUid,
+        path: 'product_photos/${DateTime.now().millisecondsSinceEpoch}.jpg',
+        bytes: bytes,
+        contentType: 'image/jpeg',
+      );
       if (url == null) throw Exception('Falha no upload da foto.');
       setState(() => _photoUrl = url);
     } catch (e) {
-      messenger.showSnackBar(
-          SnackBar(content: Text('Erro ao enviar foto: $e'), backgroundColor: Colors.red));
+      if (!mounted) return;
+      AppToast.error(context, 'Erro ao enviar foto: $e');
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }
@@ -456,24 +452,25 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   Widget _buildAddIngredientButton(List<Ingredient> available) {
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       onTap: () => _showIngredientPicker(available),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
         decoration: BoxDecoration(
-          color: _colorCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
-              color: _colorGreenPrimary.withValues(alpha: 0.4), width: 1),
+              color: AppColors.greenPrimary.withValues(alpha: 0.4), width: 1),
         ),
         child: const Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, color: _colorGold),
+            Icon(Icons.add, color: AppColors.gold),
             SizedBox(width: 8),
-            Text('Adicionar ingrediente',
+            Text('Adicionar produto',
                 style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -483,46 +480,69 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   void _showIngredientPicker(List<Ingredient> available) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: _colorCard,
+      backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
-          borderRadius:
-              BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Selecione um insumo',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-            const Divider(height: 1),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: available.length,
-                itemBuilder: (ctx, i) {
-                  final ing = available[i];
-                  return ListTile(
-                    leading:
-                        const Icon(Icons.science_outlined, color: _colorGold),
-                    title: Text(ing.name,
-                        style: const TextStyle(color: Colors.white)),
-                    subtitle: Text(
-                        '${formatCurrencyAbs(ing.pricePerUnit)}/${ing.unit.label}',
-                        style: const TextStyle(
-                            color: Colors.white54, fontSize: 12)),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _addIngredient(ing);
+          borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateSheet) {
+          var filtered = available;
+          if (_pickerQuery.isNotEmpty) {
+            final q = _pickerQuery.toLowerCase();
+            filtered = available
+                .where((ing) => ing.name.toLowerCase().contains(q))
+                .toList();
+          }
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('Selecione um produto',
+                      style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: AppSearchField(
+                    hint: 'Buscar produto…',
+                    onChanged: (value) {
+                      setStateSheet(() => _pickerQuery = value);
                     },
-                  );
-                },
-              ),
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: filtered.length,
+                    itemBuilder: (ctx, i) {
+                      final ing = filtered[i];
+                      return ListTile(
+                        leading: const Icon(Icons.science_outlined,
+                            color: AppColors.gold),
+                        title: Text(ing.name,
+                            style: const TextStyle(
+                                color: AppColors.textPrimary)),
+                        subtitle: Text(
+                            '${formatCurrencyAbs(ing.pricePerUnit)}/${ing.unit.label}',
+                            style: const TextStyle(
+                                color: AppColors.textSec,
+                                fontSize: AppTypography.secondary)),
+                        onTap: () {
+                          Navigator.pop(ctx);
+                          _pickerQuery = '';
+                          _addIngredient(ing);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -545,7 +565,8 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-          color: _colorCard, borderRadius: BorderRadius.circular(10)),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.sm)),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -556,17 +577,21 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               children: [
                 Text(item.ingredientName,
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
                 if (ing != null)
                   Text(
                       '${formatCurrencyAbs(ing.pricePerUnit)}/${ing.unit.label}',
-                      style:
-                          const TextStyle(color: Colors.white38, fontSize: 11))
+                      style: const TextStyle(
+                          color: AppColors.textTertiary,
+                          fontSize: AppTypography.caption))
                 else
-                  const Text('Insumo removido',
-                      style: TextStyle(color: Colors.red, fontSize: 11)),
+                  const Text('Produto removido',
+                      style: TextStyle(
+                          color: AppColors.danger,
+                          fontSize: AppTypography.caption)),
               ],
             ),
           ),
@@ -577,32 +602,35 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               Row(
                 children: [
                   SizedBox(
-                    width: showSelector ? 62 : 72,
+                    width: showSelector ? 72 : 84,
+                    height: 48,
                     child: TextField(
                       controller: _qtyControllers[index],
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
                       textAlign: TextAlign.center,
-                      style:
-                          const TextStyle(color: Colors.white, fontSize: 14),
+                      style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: AppTypography.body),
                       decoration: InputDecoration(
                         isDense: true,
                         filled: true,
-                        fillColor: _colorBackground,
+                        fillColor: AppColors.background,
                         suffixText: showSelector ? null : ing?.unit.label,
-                        suffixStyle:
-                            const TextStyle(color: _colorGold, fontSize: 11),
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+                        suffixStyle: const TextStyle(
+                            color: AppColors.gold,
+                            fontSize: AppTypography.caption),
+                        contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8, horizontal: 6),
                         enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                             borderSide: BorderSide(
-                                color:
-                                    Colors.white.withValues(alpha: 0.08))),
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.08))),
                         focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                             borderSide: const BorderSide(
-                                color: _colorGold, width: 1.2)),
+                                color: AppColors.gold, width: 1.2)),
                       ),
                     ),
                   ),
@@ -615,7 +643,9 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               if (_hasConversionWarning(index, ingredients)) ...[
                 const SizedBox(height: 4),
                 const Text('conversão não aplicada',
-                    style: TextStyle(color: Colors.orange, fontSize: 10)),
+                    style: TextStyle(
+                        color: AppColors.warning,
+                        fontSize: AppTypography.caption)),
               ],
             ],
           ),
@@ -626,17 +656,20 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 const Text('custo',
-                    style: TextStyle(color: Colors.white38, fontSize: 10)),
+                    style: TextStyle(
+                        color: AppColors.textTertiary,
+                        fontSize: AppTypography.caption)),
                 Text(formatCurrencyAbs(lineCost),
                     style: const TextStyle(
-                        color: _colorGold,
-                        fontSize: 12,
+                        color: AppColors.gold,
+                        fontSize: AppTypography.secondary,
                         fontWeight: FontWeight.bold)),
               ],
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+            icon: const Icon(Icons.delete_outline,
+                color: AppColors.danger, size: 20),
             onPressed: () => _removeAt(index),
           ),
         ],
@@ -648,22 +681,27 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: _colorBackground,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        border: Border.all(
+            color: AppColors.textPrimary.withValues(alpha: 0.08)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _recipeInputUnits[index],
-          dropdownColor: _colorCard,
-          icon: const Icon(Icons.arrow_drop_down, color: _colorGold, size: 18),
-          style: const TextStyle(color: Colors.white, fontSize: 12),
+          dropdownColor: AppColors.card,
+          icon: const Icon(Icons.arrow_drop_down,
+              color: AppColors.gold, size: 18),
+          style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: AppTypography.secondary),
           items: units
               .map((u) => DropdownMenuItem(
                     value: u,
                     child: Text(u,
                         style: const TextStyle(
-                            color: Colors.white, fontSize: 12)),
+                            color: AppColors.textPrimary,
+                            fontSize: AppTypography.secondary)),
                   ))
               .toList(),
           onChanged: (v) {
@@ -679,15 +717,14 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
   Widget _buildLivePreview(Map<String, Ingredient> ingredients) {
     final t = _livePreview(ingredients);
     final isLucro = t.isLucro;
+    final color = isLucro ? AppColors.success : AppColors.danger;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: (isLucro ? Colors.green : Colors.red).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
-            color: (isLucro ? Colors.green : Colors.red)
-                .withValues(alpha: 0.3),
-            width: 1),
+            color: color.withValues(alpha: 0.3), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,19 +732,18 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
           Row(
             children: [
               Icon(isLucro ? Icons.trending_up : Icons.trending_down,
-                  color: isLucro ? Colors.green : Colors.red, size: 20),
+                  color: color, size: 20),
               const SizedBox(width: 8),
-              Text(isLucro ? 'Projeta LUCRO' : 'Projeta PREJUÍZO',
+              Text(isLucro ? 'Projeta lucro' : 'Projeta prejuízo',
                   style: TextStyle(
-                      color: isLucro ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold)),
+                      color: color, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 12),
-          _previewRow('Ingredientes', formatCurrencyAbs(t.ingredientsTotal)),
+          _previewRow('Produtos', formatCurrencyAbs(t.ingredientsTotal)),
           _previewRow('Mão de obra', formatCurrencyAbs(t.laborCost)),
           _previewRow('Embalagem', formatCurrencyAbs(t.packagingCost)),
-          const Divider(color: Colors.white24, height: 16),
+          const Divider(color: AppColors.border, height: 16),
           _previewRow('Custo total', formatCurrencyAbs(t.totalCost),
               bold: true),
           _previewRow('Preço de venda', formatCurrencyAbs(t.salePrice),
@@ -718,13 +754,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
             children: [
               Text(isLucro ? 'Lucro' : 'Prejuízo',
                   style: TextStyle(
-                      color: isLucro ? Colors.green : Colors.red,
-                      fontWeight: FontWeight.bold)),
+                      color: color, fontWeight: FontWeight.bold)),
               Text(
                   '${isLucro ? '+' : ''}${formatCurrency(t.profit)}  •  Margem ${t.marginPercent.toStringAsFixed(1)}%',
-                  style: TextStyle(
-                      color: isLucro ? Colors.green : Colors.red,
-                      fontSize: 16,
+                  style: AppTypography.number(
+                      color: color,
+                      fontSize: AppTypography.section,
                       fontWeight: FontWeight.bold)),
             ],
           ),
@@ -741,13 +776,13 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         children: [
           Text(label,
               style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
+                  color: AppColors.textPrimary.withValues(alpha: 0.7),
+                  fontSize: AppTypography.body,
                   fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
           Text(value,
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.body,
                   fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
         ],
       ),
@@ -756,26 +791,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
 
   Widget _field(TextEditingController c, String label, IconData icon,
       {TextInputType keyboardType = TextInputType.text, int maxLines = 1}) {
-    return TextField(
+    return AppTextField(
       controller: c,
+      label: label,
+      icon: icon,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon, color: _colorGold, size: 20),
-        filled: true,
-        fillColor: _colorCard,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
-        ),
-      ),
     );
   }
 
@@ -786,11 +807,12 @@ class _ProductFormScreenState extends State<ProductFormScreen> {
         child: ElevatedButton(
           onPressed: _saving ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: _colorGreenPrimary,
-            disabledBackgroundColor: _colorGreenPrimary.withValues(alpha: 0.5),
+            backgroundColor: AppColors.greenPrimary,
+            disabledBackgroundColor:
+                AppColors.greenPrimary.withValues(alpha: 0.5),
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(AppRadius.md)),
             elevation: 0,
           ),
           child: _saving

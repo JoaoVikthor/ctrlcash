@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/offer_comparator.dart';
 import 'active_offer_marker.dart';
@@ -32,11 +36,11 @@ class OfferCard extends StatelessWidget {
     return Opacity(
       opacity: enabled ? 1.0 : 0.55,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: AppSpacing.m),
+        padding: const EdgeInsets.all(AppSpacing.l),
         decoration: BoxDecoration(
-          color: const Color(0xFF142A20),
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,20 +54,32 @@ class OfferCard extends StatelessWidget {
                     children: [
                       Text(
                         offer.supplier,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
-                          fontSize: 15,
+                          fontSize: AppTypography.body,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpacing.xs),
+                      if (offer.hasProductName) ...[
+                        Text(
+                          'Produto: ${offer.productName}',
+                          style: TextStyle(
+                            color: AppColors.textSec,
+                            fontSize: AppTypography.caption,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                      ],
                       Text(
                         '${formatCurrencyAbs(offer.packagePrice)} · ${offer.packageQuantity.toStringAsFixed(offer.packageQuantity % 1 == 0 ? 0 : 2)}',
-                        style: const TextStyle(
-                          color: Color(0xFF7A8B83),
-                          fontSize: 12,
+                        style: AppTypography.number(
+                          color: AppColors.textSec,
+                          fontSize: AppTypography.secondary,
                         ),
                       ),
                     ],
@@ -79,40 +95,43 @@ class OfferCard extends StatelessWidget {
                   const BestPriceChip(),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.m),
             Row(
               children: [
                 Text(
                   formatCurrencyAbs(offer.pricePerUnit),
-                  style: const TextStyle(
-                    color: Color(0xFFB89775),
-                    fontSize: 18,
+                  style: AppTypography.number(
+                    color: AppColors.gold,
+                    fontSize: AppTypography.title,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const Text(
+                Text(
                   '/un',
                   style: TextStyle(
-                    color: Color(0xFF7A8B83),
-                    fontSize: 12,
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.secondary,
                   ),
                 ),
                 const Spacer(),
                 if (ranked.isActive)
                   const SizedBox.shrink()
                 else if (ranked.deltaVsActive.abs() < 0.005)
-                  const Text(
+                  Text(
                     'sem referência',
                     style: TextStyle(
-                      color: Color(0xFF7A8B83),
-                      fontSize: 10,
+                      color: AppColors.textSec,
+                      fontSize: AppTypography.caption,
                     ),
                   )
                 else
                   DeltaPriceText(delta: ranked.deltaVsActive),
               ],
             ),
-            const Divider(color: Colors.white24, height: 24),
+            Divider(
+              color: AppColors.textPrimary.withValues(alpha: 0.14),
+              height: AppSpacing.xxl,
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -123,9 +142,9 @@ class OfferCard extends StatelessWidget {
                       width: 44,
                       height: 44,
                       alignment: Alignment.center,
-                      child: const Icon(
+                      child: Icon(
                         Icons.check_circle,
-                        color: Color(0xFF165A41),
+                        color: AppColors.greenPrimary,
                         size: 22,
                       ),
                     ),
@@ -136,9 +155,9 @@ class OfferCard extends StatelessWidget {
                     'Usar no ticket',
                     onSet,
                   ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.s),
                 _action(Icons.edit_outlined, 'Editar', onEdit),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppSpacing.s),
                 _action(
                   enabled
                       ? Icons.visibility_off_outlined
@@ -147,12 +166,12 @@ class OfferCard extends StatelessWidget {
                   onToggle,
                 ),
                 if (onDelete != null) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.s),
                   _action(
                     Icons.delete_outline,
                     'Excluir',
                     onDelete!,
-                    color: const Color(0xFF7A8B83),
+                    color: AppColors.textSec,
                   ),
                 ],
               ],
@@ -173,14 +192,14 @@ class OfferCard extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onPressed,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(AppRadius.lg),
         child: Container(
           width: 44,
           height: 44,
           alignment: Alignment.center,
           child: Icon(
             icon,
-            color: color ?? const Color(0xFFB89775),
+            color: color ?? AppColors.gold,
             size: 22,
           ),
         ),

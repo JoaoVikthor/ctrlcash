@@ -1,10 +1,16 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/price_audit_log.dart';
-import '../providers/ingredient_provider.dart';
+import '../providers/user_provider.dart';
+import '../services/firestore_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../widgets/app_branded_header.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/audit_entry_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
@@ -19,109 +25,159 @@ class AuditLogsScreen extends StatefulWidget {
 }
 
 class _AuditLogsScreenState extends State<AuditLogsScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   String _query = '';
   int _filterIndex = 0;
 
+  List<PriceAuditLog> _logs = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  String? _error;
+  DocumentSnapshot? _lastDoc;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitial());
+  }
+
+  Future<void> _loadInitial() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+      _logs = [];
+      _lastDoc = null;
+      _hasMore = true;
+    });
+    try {
+      final uid = context.read<UserProvider>().uid;
+      final service = context.read<FirestoreService>();
+      if (uid == null) throw StateError('Usuário não autenticado.');
+      final page = await service.fetchPriceAuditLogs(uid, limit: 50);
+      setState(() {
+        _logs = page.logs;
+        _lastDoc = page.lastDoc;
+        _hasMore = page.hasMore;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    final uid = context.read<UserProvider>().uid;
+    if (uid == null) return;
+    setState(() => _loadingMore = true);
+    try {
+      final service = context.read<FirestoreService>();
+      final page = await service.fetchPriceAuditLogs(
+        uid,
+        limit: 50,
+        startAfter: _lastDoc,
+      );
+      setState(() {
+        _logs.addAll(page.logs);
+        _lastDoc = page.lastDoc;
+        _hasMore = page.hasMore;
+        _loadingMore = false;
+      });
+    } catch (e) {
+      setState(() => _loadingMore = false);
+      if (!mounted) return;
+      AppToast.error(context, 'Erro ao carregar mais: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final provider = context.read<IngredientProvider>();
-
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: const AppBrandedHeader(title: 'Auditoria', showBack: true),
-      body: StreamBuilder<List<PriceAuditLog>>(
-        stream: provider.auditLogs,
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return ErrorState(
-              message: 'Não foi possível carregar o histórico.',
-              onRetry: () {
-                provider.reconnectAuditLogs();
-                setState(() {});
-              },
-            );
-          }
-          if (snapshot.connectionState == ConnectionState.done &&
-              !snapshot.hasData) {
-            return const EmptyState(
-              icon: Icons.receipt_long_outlined,
-              title: 'Sem registros',
-              message: 'Nenhuma alteração de preço foi registrada ainda.',
-            );
-          }
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFFB89775),
-              ),
-            );
-          }
+      body: _buildBody(),
+    );
+  }
 
-          final logs = _applyFilters(snapshot.data!);
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.gold),
+      );
+    }
+    if (_error != null) {
+      return ErrorState(
+        message: 'Não foi possível carregar o histórico.',
+        onRetry: _loadInitial,
+      );
+    }
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Registro de ações',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Tudo que altera custos, ofertas e produtos aparece aqui.',
-                      style: TextStyle(
-                        color: _colorTextSec,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    AppSearchField(
-                      hint: 'Buscar por ação, produto ou fornecedor…',
-                      onChanged: (value) => setState(() => _query = value),
-                    ),
-                    const SizedBox(height: 12),
-                    AppFilterChipRow(
-                      options: const [
-                        'Tudo',
-                        'Insumos',
-                        'Ofertas',
-                        'Produtos',
-                        'Sistema',
-                      ],
-                      selectedIndex: _filterIndex,
-                      onSelected: (index) =>
-                          setState(() => _filterIndex = index),
-                    ),
-                  ],
+    final logs = _applyFilters(_logs);
+
+    return RefreshIndicator(
+      color: AppColors.gold,
+      backgroundColor: AppColors.card,
+      onRefresh: _loadInitial,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Registro de ações',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.section,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: logs.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.receipt_long,
-                        title: 'Nenhuma ação registrada',
-                        message:
-                            'Alterações em insumos, ofertas e produtos aparecerão aqui.',
-                      )
-                    : _buildTimeline(logs),
-              ),
-            ],
-          );
-        },
+                const SizedBox(height: 4),
+                const Text(
+                  'Tudo que altera custos, ofertas e fichas técnicas aparece aqui.',
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.secondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                AppSearchField(
+                  hint: 'Buscar por ação, produto ou fornecedor…',
+                  onChanged: (value) => setState(() => _query = value),
+                ),
+                const SizedBox(height: 12),
+                AppFilterChipRow(
+                  options: const [
+                    'Tudo',
+                    'Produtos',
+                    'Ofertas',
+                    'Fichas técnicas',
+                    'Sistema',
+                  ],
+                  selectedIndex: _filterIndex,
+                  onSelected: (index) =>
+                      setState(() => _filterIndex = index),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: logs.isEmpty
+                ? const EmptyState(
+                    icon: Icons.receipt_long,
+                    title: 'Nenhuma ação registrada',
+                    message:
+                        'Alterações em produtos, ofertas e fichas técnicas aparecerão aqui.',
+                  )
+                : _buildTimeline(logs),
+          ),
+        ],
       ),
     );
   }
@@ -132,8 +188,11 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 90),
-      itemCount: keys.length,
+      itemCount: keys.length + 1,
       itemBuilder: (context, index) {
+        if (index == keys.length) {
+          return _buildLoadMore();
+        }
         final key = keys[index];
         final dayLogs = groups[key]!;
 
@@ -145,16 +204,16 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
               child: Text(
                 _dayLabel(key),
                 style: const TextStyle(
-                  color: _colorTextSec,
-                  fontSize: 12,
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.secondary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ),
             Container(
               decoration: BoxDecoration(
-                color: _colorCard,
-                borderRadius: BorderRadius.circular(12),
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(AppRadius.md),
               ),
               child: Column(
                 children: [
@@ -165,7 +224,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                       children: [
                         InkWell(
                           onTap: () => _showDetail(context, log),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             child: AuditEntryTile(log: log),
@@ -173,7 +232,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                         ),
                         if (!isLast)
                           const Divider(
-                            color: Colors.white24,
+                            color: AppColors.border,
                             height: 1,
                             indent: 16,
                             endIndent: 16,
@@ -190,12 +249,46 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
     );
   }
 
+  Widget _buildLoadMore() {
+    if (!_hasMore && _logs.length >= 50) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(
+          child: Text(
+            'Fim do histórico',
+            style: TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
+          ),
+        ),
+      );
+    }
+    if (!_hasMore) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: _loadingMore
+            ? const CircularProgressIndicator(color: AppColors.gold)
+            : TextButton(
+                onPressed: _loadMore,
+                child: const Text(
+                  'Carregar mais',
+                  style: TextStyle(
+                    color: AppColors.gold,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+
   void _showDetail(BuildContext context, PriceAuditLog log) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: _colorCard,
+      backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
       ),
       builder: (context) {
         return SafeArea(
@@ -210,7 +303,7 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: AppColors.border,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -221,8 +314,8 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                     Icon(
                       _iconFor(log.action),
                       color: _isDestructive(log.action)
-                          ? Colors.red
-                          : const Color(0xFFB89775),
+                          ? AppColors.danger
+                          : AppColors.gold,
                       size: 24,
                     ),
                     const SizedBox(width: 12),
@@ -230,8 +323,8 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                       child: Text(
                         log.summary,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
+                          color: AppColors.textPrimary,
+                          fontSize: AppTypography.section,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -242,8 +335,16 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                 Text(
                   _fullTimestamp(log),
                   style: const TextStyle(
-                    color: _colorTextSec,
-                    fontSize: 13,
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.body,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_entityTypeLabel(log.entityType)} · ${log.action}',
+                  style: const TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.secondary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -251,16 +352,16 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                   Text(
                     'Anterior: ${formatCurrencyAbs(log.previousPrice!)} → Novo: ${formatCurrencyAbs(log.newPrice!)}',
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                      fontSize: AppTypography.body,
                     ),
                   )
                 else if (log.newPrice != null)
                   Text(
                     'Novo valor: ${formatCurrencyAbs(log.newPrice!)}',
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
+                      color: AppColors.textPrimary,
+                      fontSize: AppTypography.body,
                     ),
                   ),
                 if (log.supplier != null && log.supplier!.isNotEmpty) ...[
@@ -268,8 +369,8 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
                   Text(
                     'Fornecedor: ${log.supplier}',
                     style: const TextStyle(
-                      color: _colorTextSec,
-                      fontSize: 13,
+                      color: AppColors.textSec,
+                      fontSize: AppTypography.body,
                     ),
                   ),
                 ],
@@ -348,6 +449,19 @@ class _AuditLogsScreenState extends State<AuditLogsScreen> {
   }
 
   bool _isDestructive(String action) => action.contains('.delete');
+
+  String _entityTypeLabel(String entityType) {
+    switch (entityType) {
+      case 'ingredient':
+        return 'Produto';
+      case 'offer':
+        return 'Oferta';
+      case 'product':
+        return 'Ficha técnica';
+      default:
+        return 'Sistema';
+    }
+  }
 
   IconData _iconFor(String action) {
     if (action.contains('.create')) return Icons.add_circle_outline;

@@ -4,9 +4,17 @@ import 'package:provider/provider.dart';
 import '../models/ingredient.dart';
 import '../models/ingredient_offer.dart';
 import '../providers/ingredient_provider.dart';
+import '../providers/user_provider.dart';
+import '../services/firestore_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/offer_comparator.dart';
+import '../utils/offer_rules.dart';
 import '../widgets/active_offer_marker.dart';
+import '../widgets/alert_banner.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/best_price_chip.dart';
 import '../widgets/confirm_action_dialog.dart';
 import '../widgets/empty_state.dart';
@@ -26,15 +34,10 @@ class IngredientOffersScreen extends StatefulWidget {
 }
 
 class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   String _query = '';
   int _filterIndex = 0;
   bool _onlyEconomy = false;
+  bool _migrationChecked = false;
 
   @override
   Widget build(BuildContext context) {
@@ -42,26 +45,26 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
     final ingredient = provider.asMap[widget.ingredientId];
 
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
           tooltip: 'Voltar',
         ),
         title: Text(
           ingredient == null ? 'Ofertas' : 'Ofertas de ${ingredient.name}',
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.history_outlined, color: _colorGold),
+            icon: const Icon(Icons.history_outlined, color: AppColors.gold),
             tooltip: 'Histórico de preços',
             onPressed: () => Navigator.pushNamed(context, '/audit-logs'),
           ),
@@ -77,7 +80,7 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
   Widget _buildBody(IngredientProvider provider, Ingredient? ingredient) {
     if (provider.loading) {
       return const Center(
-        child: CircularProgressIndicator(color: _colorGold),
+        child: CircularProgressIndicator(color: AppColors.gold),
       );
     }
     if (provider.error != null) {
@@ -87,8 +90,10 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
       );
     }
     if (ingredient == null) {
-      return const ErrorState(message: 'Insumo não encontrado.');
+      return const ErrorState(message: 'Produto não encontrado.');
     }
+
+    _maybeMigrateLegacy(ingredient);
 
     final offers = ingredient.offers;
     final ranked = OfferComparator.rankAll(
@@ -103,26 +108,26 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
         _buildSummaryCard(ingredient),
         if (OfferComparator.hasDifferentPackageSizes(offers)) ...[
           const SizedBox(height: 12),
-          _buildPackageSizeBanner(),
+          const AlertBanner(
+            message:
+                'Atenção: embalagens de tamanhos diferentes. Compare o preço por unidade.',
+            icon: Icons.warning_amber_rounded,
+          ),
         ],
         const SizedBox(height: 12),
         const Text(
           'Você escolhe qual oferta entra no ticket. O app não troca sozinho.',
-          style: TextStyle(color: _colorTextSec, fontSize: 12),
+          style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary),
         ),
         const SizedBox(height: 16),
         AppSearchField(
-          hint: 'Buscar fornecedor…',
+          hint: 'Buscar fornecedor ou produto…',
           onChanged: (value) => setState(() => _query = value),
         ),
         const SizedBox(height: 12),
-        AppFilterChipRow(
-          options: const ['Todas', 'Ativas', 'Inativas', 'Padrão'],
-          selectedIndex: _filterIndex,
-          onSelected: (index) => setState(() => _filterIndex = index),
-        ),
-        const SizedBox(height: 12),
-        _buildEconomyToggle(),
+        _buildFilterRow(),
         const SizedBox(height: 16),
         _buildCounter(ingredient),
         const SizedBox(height: 16),
@@ -133,10 +138,44 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
         ] else ...[
           ...filtered.map((r) => _buildOfferCard(ingredient, r)),
         ],
-        if (ingredient.offersCount >= 15) ...[
+        if (ingredient.offersCount >= maxOffersPerIngredient) ...[
           const SizedBox(height: 16),
           OfferLimitBanner(current: ingredient.offersCount),
         ],
+      ],
+    );
+  }
+
+  void _maybeMigrateLegacy(Ingredient ingredient) {
+    if (_migrationChecked) return;
+    if (ingredient.offers.isNotEmpty) {
+      _migrationChecked = true;
+      return;
+    }
+    if (ingredient.purchasePrice <= 0 || ingredient.packageQuantity <= 0) {
+      _migrationChecked = true;
+      return;
+    }
+    _migrationChecked = true;
+
+    final uid = context.read<UserProvider>().uid;
+    if (uid == null) return;
+
+    context.read<FirestoreService>().migrateLegacyOffers(uid, ingredient);
+  }
+
+  Widget _buildFilterRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: AppFilterChipRow(
+            options: const ['Todas', 'Ativas', 'Inativas', 'Padrão'],
+            selectedIndex: _filterIndex,
+            onSelected: (index) => setState(() => _filterIndex = index),
+          ),
+        ),
+        const SizedBox(width: 8),
+        _buildEconomyChip(),
       ],
     );
   }
@@ -148,8 +187,8 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,15 +196,17 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
           Text(
             ingredient.name,
             style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
+              color: AppColors.textPrimary,
+              fontSize: AppTypography.title,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Preço por unidade de referência: ${formatCurrencyAbs(ingredient.pricePerUnit)}/${ingredient.unit.label}',
-            style: const TextStyle(color: _colorTextSec, fontSize: 12),
+            style: const TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -178,12 +219,16 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
                 const SizedBox(width: 2),
                 Text(
                   active.supplier,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: AppTypography.secondary),
                 ),
               ] else
-                const Text(
+                Text(
                   'Nenhuma oferta ativa',
-                  style: TextStyle(color: Colors.orange, fontSize: 12),
+                  style: TextStyle(
+                      color: AppColors.warning,
+                      fontSize: AppTypography.secondary),
                 ),
               if (active != null &&
                   best != null &&
@@ -194,52 +239,33 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
               ],
             ],
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPackageSizeBanner() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.orange.withValues(alpha: 0.35),
-        ),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 20),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Atenção: embalagens de tamanhos diferentes. Compare o preço por unidade.',
-              style: TextStyle(
-                color: Colors.orange,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
+          if (active != null && active.hasProductName) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Produto: ${active.productName}',
+              style: const TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.caption),
             ),
-          ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildEconomyToggle() {
+  Widget _buildEconomyChip() {
     return GestureDetector(
       onTap: () => setState(() => _onlyEconomy = !_onlyEconomy),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: _colorCard,
-          borderRadius: BorderRadius.circular(12),
+          color: _onlyEconomy
+              ? AppColors.gold.withValues(alpha: 0.16)
+              : AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           border: Border.all(
-            color: _onlyEconomy
-                ? _colorGold
-                : Colors.white.withValues(alpha: 0.08),
+            color: _onlyEconomy ? AppColors.gold : AppColors.border,
           ),
         ),
         child: Row(
@@ -247,15 +273,15 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
           children: [
             Icon(
               Icons.star,
-              color: _onlyEconomy ? _colorGold : _colorTextSec,
-              size: 18,
+              color: _onlyEconomy ? AppColors.gold : AppColors.textSec,
+              size: 16,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Text(
               'só com economia',
               style: TextStyle(
-                color: _onlyEconomy ? _colorGold : _colorTextSec,
-                fontSize: 13,
+                color: _onlyEconomy ? AppColors.gold : AppColors.textSec,
+                fontSize: AppTypography.secondary,
                 fontWeight:
                     _onlyEconomy ? FontWeight.bold : FontWeight.normal,
               ),
@@ -267,20 +293,22 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
   }
 
   Widget _buildCounter(Ingredient ingredient) {
-    final atLimit = ingredient.offersCount >= 15;
+    final atLimit = ingredient.offersCount >= maxOffersPerIngredient;
     return Row(
       children: [
         Text(
-          '${ingredient.offersCount} de 15 ofertas',
-          style: const TextStyle(color: _colorTextSec, fontSize: 12),
+          '${ingredient.offersCount} de $maxOffersPerIngredient ofertas',
+          style: const TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary),
         ),
         if (atLimit) ...[
           const SizedBox(width: 8),
-          const Text(
-            'Limite de 15 atingido',
+          Text(
+            'Limite de $maxOffersPerIngredient atingido',
             style: TextStyle(
-              color: Colors.orange,
-              fontSize: 12,
+              color: AppColors.warning,
+              fontSize: AppTypography.secondary,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -310,23 +338,23 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.history, color: _colorGold, size: 20),
+              const Icon(Icons.history, color: AppColors.gold, size: 20),
               const SizedBox(width: 8),
-              Expanded(
+              const Expanded(
                 child: Text(
-                  'Preço base do insumo',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  'Preço base do produto',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
+                    fontSize: AppTypography.body,
                   ),
                 ),
               ),
@@ -335,16 +363,18 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
           const SizedBox(height: 8),
           Text(
             '${formatCurrencyAbs(legacy.pricePerUnit)}/${ingredient.unit.label}',
-            style: const TextStyle(
-              color: _colorGold,
-              fontSize: 18,
+            style: AppTypography.number(
+              color: AppColors.gold,
+              fontSize: AppTypography.title,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 4),
           const Text(
             'Cadastre ofertas para comparar.',
-            style: TextStyle(color: _colorTextSec, fontSize: 12),
+            style: TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
           ),
         ],
       ),
@@ -354,11 +384,11 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
   Widget _buildNoFilterResult() {
     return Column(
       children: [
-        const Icon(Icons.search_off, color: _colorTextSec, size: 48),
+        const Icon(Icons.search_off, color: AppColors.textSec, size: 48),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Nenhuma oferta corresponde aos filtros.',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppColors.textPrimary),
         ),
         const SizedBox(height: 8),
         TextButton(
@@ -369,7 +399,8 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
           }),
           child: const Text(
             'Limpar filtros',
-            style: TextStyle(color: _colorGold, fontWeight: FontWeight.bold),
+            style: TextStyle(
+                color: AppColors.gold, fontWeight: FontWeight.bold),
           ),
         ),
       ],
@@ -395,7 +426,7 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
   }
 
   Widget _buildBottomCTA(Ingredient ingredient) {
-    final disabled = ingredient.offersCount >= 15;
+    final disabled = ingredient.offersCount >= maxOffersPerIngredient;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -408,12 +439,12 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
                     arguments: {'ingredientId': ingredient.id},
                   ),
           style: ElevatedButton.styleFrom(
-            backgroundColor: _colorGreenPrimary,
+            backgroundColor: AppColors.greenPrimary,
             disabledBackgroundColor:
-                _colorGreenPrimary.withValues(alpha: 0.5),
+                AppColors.greenPrimary.withValues(alpha: 0.5),
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(AppRadius.md),
             ),
             elevation: 0,
           ),
@@ -445,7 +476,8 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
       }
     }).where((r) {
       if (query.isEmpty) return true;
-      return r.offer.supplier.toLowerCase().contains(query);
+      return r.offer.supplier.toLowerCase().contains(query) ||
+          r.offer.productName.toLowerCase().contains(query);
     }).toList();
 
     if (_onlyEconomy) {
@@ -460,15 +492,16 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
   Future<void> _activateOffer(Ingredient ingredient, IngredientOffer offer) async {
     final delta = offer.pricePerUnit -
         (ingredient.activeOffer?.pricePerUnit ?? offer.pricePerUnit);
+    final label = _offerLabel(offer);
     String body;
     if (delta.abs() < 0.005) {
-      body = '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un';
+      body = '$label · ${formatCurrencyAbs(offer.pricePerUnit)}/un';
     } else if (delta < 0) {
       body =
-          '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nEconomia de ${formatCurrencyAbs(delta.abs())} por unidade em relação à ativa.';
+          '$label · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nEconomia de ${formatCurrencyAbs(delta.abs())} por unidade em relação à ativa.';
     } else {
       body =
-          '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nFicará ${formatCurrencyAbs(delta)} mais caro por unidade.';
+          '$label · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nFicará ${formatCurrencyAbs(delta)} mais caro por unidade.';
     }
 
     final provider = context.read<IngredientProvider>();
@@ -490,7 +523,7 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Oferta de ${offer.supplier} agora é a ativa.'),
-          backgroundColor: _colorGold,
+          backgroundColor: AppColors.gold,
           action: previousActiveOfferId != null
               ? SnackBarAction(
                   label: 'Desfazer',
@@ -505,23 +538,19 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Não foi possível trocar a oferta: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Não foi possível trocar a oferta: $e');
     }
   }
 
   Future<void> _deleteOffer(Ingredient ingredient, IngredientOffer offer) async {
     final isActive = ingredient.activeOffer?.id == offer.id;
+    final label = _offerLabel(offer);
     final body = isActive
-        ? '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nEsta é a oferta ATIVA. Ao excluir, o ticket volta ao preço base até você escolher outra oferta.'
-        : '${offer.supplier} · ${formatCurrencyAbs(offer.pricePerUnit)}/un';
+        ? '$label · ${formatCurrencyAbs(offer.pricePerUnit)}/un\nEsta é a oferta ATIVA. Ao excluir, o ticket volta ao preço base até você escolher outra oferta.'
+        : '$label · ${formatCurrencyAbs(offer.pricePerUnit)}/un';
     final note = isActive
         ? 'A oferta ativa será removida.'
-        : 'A exclusão não pode ser desfeita.';
+        : 'A exclusão pode ser desfeita logo após confirmar.';
 
     final provider = context.read<IngredientProvider>();
 
@@ -542,17 +571,35 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Oferta de ${offer.supplier} excluída.'),
-          backgroundColor: _colorGold,
+          backgroundColor: AppColors.gold,
+          action: SnackBarAction(
+            label: 'Desfazer',
+            textColor: Colors.white,
+            onPressed: () async {
+              try {
+                final restored = offer.copyWith(updatedAt: DateTime.now());
+                await provider.upsertOffer(ingredient.id, restored);
+                if (isActive) {
+                  await provider.setActiveOffer(ingredient.id, restored.id);
+                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Oferta de ${offer.supplier} restaurada.'),
+                    backgroundColor: AppColors.gold,
+                  ),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                AppToast.error(context, 'Erro ao desfazer: $e');
+              }
+            },
+          ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao excluir oferta: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Erro ao excluir oferta: $e');
     }
   }
 
@@ -564,12 +611,12 @@ class _IngredientOffersScreenState extends State<IngredientOffersScreen> {
           .toggleOfferActive(ingredient.id, offer.id, newState);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao alterar oferta: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Erro ao alterar oferta: $e');
     }
+  }
+
+  String _offerLabel(IngredientOffer offer) {
+    if (!offer.hasProductName) return offer.supplier;
+    return '${offer.supplier} · ${offer.productName}';
   }
 }

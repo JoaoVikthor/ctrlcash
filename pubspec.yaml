@@ -32,14 +32,17 @@ dependencies:
     sdk: flutter
   firebase_core: ^3.0.0
   firebase_auth: ^5.0.0
-  font_awesome_flutter: ^11.0.0
   flutter_dotenv: ^5.2.0 # Carrega variaveis de ambiente (.env) - chaves do Firebase etc.
   provider: ^6.1.2 # Gerenciamento de estado (ChangeNotifierProvider / StreamProvider)
   cloud_firestore: ^5.0.0 # Banco de dados NoSQL (Firestore) - CRUD isolado por UID (RN02)
   fl_chart: ^0.69.0 # Graficos (pizza, barras, linhas) para relatorios e dashboard
   image_picker: ^1.1.2 # Captura/selecao de fotos (perfil do usuario, produto)
   firebase_storage: ^12.0.0 # Upload de fotos (perfil, produto) no Storage
-  mobile_scanner: ^6.0.2 # Leitura de codigo de barras/QR via camera
+  flutter_local_notifications: ^19.0.0 # Notificacoes locais (alertas de orcamento, recorrencia e margem)
+  excel: ^4.0.6
+  path_provider: ^2.1.6
+  share_plus: ^13.3.1
+  web: ^1.1.0
 
 dev_dependencies:
   flutter_test:

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class IngredientOffer {
   final String id;
   final String supplier;
+  final String productName;
   final double packagePrice;
   final double packageQuantity;
   final bool isActive;
@@ -14,6 +15,7 @@ class IngredientOffer {
   const IngredientOffer({
     required this.id,
     required this.supplier,
+    this.productName = '',
     required this.packagePrice,
     required this.packageQuantity,
     this.isActive = false,
@@ -25,6 +27,8 @@ class IngredientOffer {
 
   double get pricePerUnit =>
       packageQuantity > 0 ? packagePrice / packageQuantity : 0;
+
+  bool get hasProductName => productName.trim().isNotEmpty;
 
   factory IngredientOffer.fromMap(Map<String, dynamic> m) {
     final rawCreated = m['createdAt'];
@@ -54,6 +58,7 @@ class IngredientOffer {
     return IngredientOffer(
       id: (m['id'] ?? '') as String,
       supplier: (m['supplier'] ?? '') as String,
+      productName: m['productName'] is String ? m['productName'] as String : '',
       packagePrice: ((m['packagePrice'] as num?)?.toDouble() ?? 0),
       packageQuantity: ((m['packageQuantity'] as num?)?.toDouble() ?? 0),
       isActive: (m['isActive'] ?? false) as bool,
@@ -67,6 +72,7 @@ class IngredientOffer {
   Map<String, dynamic> toMap() => {
         'id': id,
         'supplier': supplier,
+        'productName': productName,
         'packagePrice': packagePrice,
         'packageQuantity': packageQuantity,
         'isActive': isActive,
@@ -79,6 +85,7 @@ class IngredientOffer {
   IngredientOffer copyWith({
     String? id,
     String? supplier,
+    String? productName,
     double? packagePrice,
     double? packageQuantity,
     bool? isActive,
@@ -89,6 +96,7 @@ class IngredientOffer {
       IngredientOffer(
         id: id ?? this.id,
         supplier: supplier ?? this.supplier,
+        productName: productName ?? this.productName,
         packagePrice: packagePrice ?? this.packagePrice,
         packageQuantity: packageQuantity ?? this.packageQuantity,
         isActive: isActive ?? this.isActive,

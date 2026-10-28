@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../models/ingredient.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/price_panel_aggregator.dart';
 import 'delta_price_text.dart';
@@ -22,19 +26,15 @@ class SupplierSummaryCard extends StatefulWidget {
 class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
   bool _expanded = false;
 
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: AppSpacing.m),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -47,18 +47,18 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
               children: [
                 Text(
                   entry.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.title,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpacing.xs),
                 Text(
-                  'Fornece ${entry.productsCount} insumos · ★ melhor em ${entry.bestCount}',
-                  style: const TextStyle(
-                    color: _colorTextSec,
-                    fontSize: 11.5,
+                  'Fornece ${entry.productsCount} produtos · ★ melhor em ${entry.bestCount}',
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.caption,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -67,9 +67,12 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
             ),
           ),
           if (_expanded) ...[
-            const SizedBox(height: 12),
-            const Divider(color: Colors.white12, height: 1),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppSpacing.m),
+            Divider(
+              color: AppColors.textPrimary.withValues(alpha: 0.07),
+              height: 1,
+            ),
+            const SizedBox(height: AppSpacing.m),
             ...widget.entry.rows.map(_buildRow),
           ],
         ],
@@ -94,22 +97,25 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
 
   Widget _bestPill(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _colorGold, width: 1.2),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+        border: Border.all(color: AppColors.gold, width: 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star, color: _colorGold, size: 12),
-          const SizedBox(width: 4),
+          const Icon(Icons.star, color: AppColors.gold, size: 12),
+          const SizedBox(width: AppSpacing.xs),
           Text(
             label,
-            style: const TextStyle(
-              color: _colorGold,
-              fontSize: 10,
+            style: TextStyle(
+              color: AppColors.gold,
+              fontSize: AppTypography.caption,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -120,16 +126,21 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
 
   Widget _countPill(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s,
+        vertical: 3,
+      ),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.textPrimary.withValues(alpha: 0.14),
+        ),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: _colorTextSec,
-          fontSize: 10,
+        style: TextStyle(
+          color: AppColors.textSec,
+          fontSize: AppTypography.caption,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -146,11 +157,14 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
       onTap: () => widget.onIngredientTap(ing.id),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        margin: const EdgeInsets.only(bottom: AppSpacing.s),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.m + 2,
+          vertical: AppSpacing.m,
+        ),
         decoration: BoxDecoration(
-          color: _colorCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Row(
           children: [
@@ -160,9 +174,9 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
                 children: [
                   Text(
                     ing.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: AppTypography.secondary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -171,7 +185,7 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
                     label,
                     style: TextStyle(
                       color: color,
-                      fontSize: 10,
+                      fontSize: AppTypography.caption,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -183,9 +197,9 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
               children: [
                 Text(
                   '${formatCurrencyAbs(row.pricePerUnit)}/${ing.unit.label}',
-                  style: const TextStyle(
-                    color: _colorGold,
-                    fontSize: 14,
+                  style: AppTypography.number(
+                    color: AppColors.gold,
+                    fontSize: AppTypography.body,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -203,8 +217,8 @@ class _SupplierSummaryCardState extends State<SupplierSummaryCard> {
   }
 
   Color _deltaColor(double delta) {
-    if (delta <= 0) return Colors.green;
-    if (delta < 1) return Colors.orange;
-    return Colors.red;
+    if (delta <= 0) return AppColors.success;
+    if (delta < 1) return AppColors.warning;
+    return AppColors.danger;
   }
 }

@@ -3,8 +3,15 @@ import 'package:provider/provider.dart';
 
 import '../models/transaction.dart';
 import '../providers/transaction_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/categories.dart';
 import '../utils/format.dart';
+import '../utils/recurrence.dart';
+import '../widgets/app_toast.dart';
+import '../widgets/filter_chip_row.dart';
 
 class TransactionFormScreen extends StatefulWidget {
   final AppTransaction? editing;
@@ -19,11 +26,6 @@ class TransactionFormScreen extends StatefulWidget {
 }
 
 class _TransactionFormScreenState extends State<TransactionFormScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   late TransactionType _type;
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
@@ -31,6 +33,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   PaymentMethod _paymentMethod = PaymentMethod.dinheiro;
   late String _category;
   bool _recurring = false;
+  String? _recurrence;
   final TextEditingController _notesController = TextEditingController();
   bool _saving = false;
 
@@ -46,6 +49,7 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
             ? kIncomeCategories.first.name
             : kExpenseCategories.first.name);
     _recurring = t?.recurring ?? false;
+    _recurrence = t?.recurrence ?? (t?.recurring == true ? 'mensal' : null);
     if (t != null) {
       _amountController.text = t.amount.toStringAsFixed(2).replaceAll('.', ',');
       _descriptionController.text = t.description;
@@ -61,9 +65,8 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     super.dispose();
   }
 
-  List<CategoryDef> get _categories => _type.isReceita
-      ? kIncomeCategories
-      : kExpenseCategories;
+  List<CategoryDef> get _categories =>
+      _type.isReceita ? kIncomeCategories : kExpenseCategories;
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -74,10 +77,10 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       builder: (context, child) => Theme(
         data: ThemeData.dark().copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: _colorGreenPrimary,
+            primary: AppColors.greenPrimary,
             onPrimary: Colors.white,
-            surface: _colorCard,
-            onSurface: Colors.white,
+            surface: AppColors.card,
+            onSurface: AppColors.textPrimary,
           ),
         ),
         child: child!,
@@ -90,21 +93,11 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     final raw = _amountController.text.trim().replaceAll(',', '.');
     final value = double.tryParse(raw);
     if (value == null || value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe um valor válido maior que zero.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Informe um valor válido maior que zero.');
       return false;
     }
     if (_descriptionController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe uma descrição.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Informe uma descrição.');
       return false;
     }
     return true;
@@ -125,6 +118,11 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         date: _date,
         paymentMethod: _paymentMethod,
         recurring: _recurring,
+        recurrence: _recurrence,
+        generatedFrom: widget.editing?.generatedFrom,
+        skippedOccurrences: widget.editing?.skippedOccurrences ?? const [],
+        receiptUrl: widget.editing?.receiptUrl,
+        budgetId: widget.editing?.budgetId,
         notes: _notesController.text.trim().isEmpty
             ? null
             : _notesController.text.trim(),
@@ -136,31 +134,19 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
         await prov.updateTransaction(t);
       }
       if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.editing == null
-              ? 'Transação registrada!'
-              : 'Transação atualizada!'),
-          backgroundColor: _colorGreenPrimary,
-        ),
+      AppToast.success(
+        context,
+        widget.editing == null
+            ? 'Transação registrada!'
+            : 'Transação atualizada!',
       );
+      Navigator.pop(context);
     } on ArgumentError catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message.toString()),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, e.message.toString());
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao salvar: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Erro ao salvar: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -170,88 +156,114 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.editing != null;
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           isEdit ? 'Editar Transação' : 'Nova Transação',
           style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxl,
+          vertical: AppSpacing.m,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildTypeToggle(),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.xl),
             _buildAmountField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildField(
               controller: _descriptionController,
               label: 'Descrição',
               icon: Icons.description_outlined,
+              hint: 'Ex.: venda do dia, compra de produtos',
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildCategoryPicker(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildPaymentPicker(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildDateField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildField(
               controller: _notesController,
               label: 'Observações (opcional)',
               icon: Icons.notes,
               maxLines: 2,
             ),
-            const SizedBox(height: 12),
-            SwitchListTile(
-              value: _recurring,
-              onChanged: (v) => setState(() => _recurring = v),
-              activeTrackColor: _colorGreenPrimary,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Repetir mensalmente',
-                  style: TextStyle(color: Colors.white)),
-              subtitle: const Text('Lançamento recorrente',
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.m),
+            if (widget.editing?.generatedFrom == null)
+              SwitchListTile(
+                value: _recurring,
+                onChanged: (v) => setState(() {
+                  _recurring = v;
+                  _recurrence = v ? (_recurrence ?? 'mensal') : null;
+                }),
+                activeTrackColor: AppColors.greenPrimary,
+                contentPadding: EdgeInsets.zero,
+                title: const Text(
+                  'Transação recorrente',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
+                subtitle: const Text(
+                  'Marca esta transação como recorrente (alertas automáticos em breve)',
+                  style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.secondary,
+                  ),
+                ),
+              ),
+            if (_recurring && widget.editing?.generatedFrom == null) ...[
+              const SizedBox(height: AppSpacing.s),
+              AppFilterChipRow(
+                options: const ['Semanal', 'Mensal', 'Anual'],
+                selectedIndex: kRecurrenceFrequencies.indexOf(_recurrence!),
+                onSelected: (index) => setState(
+                    () => _recurrence = kRecurrenceFrequencies[index]),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.s),
           ],
         ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xxl,
+            AppSpacing.s,
+            AppSpacing.xxl,
+            AppSpacing.xxl,
+          ),
           child: ElevatedButton(
             onPressed: _saving ? null : _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _colorGreenPrimary,
-              disabledBackgroundColor:
-                  _colorGreenPrimary.withValues(alpha: 0.5),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
             child: _saving
                 ? const SizedBox(
                     height: 20,
                     width: 20,
                     child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2),
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   )
                 : Text(
                     isEdit ? 'Salvar Alterações' : 'Registrar Transação',
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
           ),
         ),
@@ -262,24 +274,40 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   Widget _buildTypeToggle() {
     return Container(
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(AppSpacing.xs),
       child: Row(
         children: [
-          Expanded(child: _toggleButton(TransactionType.despesa, 'Despesa',
-              Icons.arrow_downward, Colors.red)),
-          const SizedBox(width: 6),
-          Expanded(child: _toggleButton(TransactionType.receita, 'Receita',
-              Icons.arrow_upward, Colors.green)),
+          Expanded(
+            child: _toggleButton(
+              TransactionType.despesa,
+              'Despesa',
+              Icons.arrow_downward,
+              AppColors.danger,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Expanded(
+            child: _toggleButton(
+              TransactionType.receita,
+              'Receita',
+              Icons.arrow_upward,
+              AppColors.success,
+            ),
+          ),
         ],
       ),
     );
   }
 
   Widget _toggleButton(
-      TransactionType t, String label, IconData icon, Color color) {
+    TransactionType t,
+    String label,
+    IconData icon,
+    Color color,
+  ) {
     final selected = _type == t;
     return GestureDetector(
       onTap: () => setState(() {
@@ -290,20 +318,23 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
       }),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.l),
         decoration: BoxDecoration(
-          color: selected ? _colorGreenPrimary : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          color: selected ? AppColors.greenPrimary : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.sm),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: selected ? Colors.white : color, size: 18),
-            const SizedBox(width: 8),
-            Text(label,
-                style: TextStyle(
-                    color: selected ? Colors.white : Colors.white70,
-                    fontWeight: FontWeight.bold)),
+            const SizedBox(width: AppSpacing.s),
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? Colors.white : AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -312,31 +343,43 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
 
   Widget _buildAmountField() {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpacing.xl,
+        horizontal: AppSpacing.l,
+      ),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
-            color: _type.isReceita
-                ? Colors.green.withValues(alpha: 0.4)
-                : Colors.red.withValues(alpha: 0.4),
-            width: 1.2),
+          color: _type.isReceita
+              ? AppColors.success.withValues(alpha: 0.4)
+              : AppColors.danger.withValues(alpha: 0.4),
+          width: 1.2,
+        ),
       ),
       child: Column(
         children: [
-          const Text('Valor',
-              style: TextStyle(color: Colors.grey, fontSize: 12)),
-          const SizedBox(height: 6),
+          const Text(
+            'Valor',
+            style: TextStyle(
+              color: AppColors.textSec,
+              fontSize: AppTypography.secondary,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              const Text('R\$',
-                  style: TextStyle(
-                      color: _colorGold,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
+              const Text(
+                'R\$',
+                style: TextStyle(
+                  color: AppColors.gold,
+                  fontSize: AppTypography.title,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s),
               SizedBox(
                 width: 160,
                 child: TextField(
@@ -345,13 +388,14 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
                       const TextInputType.numberWithOptions(decimal: true),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold),
+                    color: AppColors.textPrimary,
+                    fontSize: AppTypography.hero,
+                    fontWeight: FontWeight.bold,
+                  ),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: '0,00',
-                    hintStyle: TextStyle(color: Colors.white24),
+                    hintStyle: TextStyle(color: AppColors.textTertiary),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -365,26 +409,36 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   }
 
   Widget _buildCategoryPicker() {
+    final options = <CategoryDef>[..._categories];
+    if (!options.any((c) => c.name == _category)) {
+      options.insert(
+        0,
+        findCategory(_category, isIncome: _type.isReceita),
+      );
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _category,
-          dropdownColor: _colorCard,
+          dropdownColor: AppColors.card,
           isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: _colorGold),
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-          items: _categories
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.body,
+          ),
+          items: options
               .map((c) => DropdownMenuItem(
                     value: c.name,
                     child: Row(
                       children: [
                         Icon(c.icon, color: c.color, size: 20),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSpacing.m),
                         Text(c.name),
                       ],
                     ),
@@ -398,25 +452,28 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
 
   Widget _buildPaymentPicker() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<PaymentMethod>(
           value: _paymentMethod,
-          dropdownColor: _colorCard,
+          dropdownColor: AppColors.card,
           isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: _colorGold),
-          style: const TextStyle(color: Colors.white, fontSize: 15),
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.body,
+          ),
           items: PaymentMethod.values
               .map((m) => DropdownMenuItem(
                     value: m,
                     child: Row(
                       children: [
-                        Icon(_paymentIcon(m), color: _colorGold, size: 20),
-                        const SizedBox(width: 12),
+                        Icon(_paymentIcon(m), color: AppColors.gold, size: 20),
+                        const SizedBox(width: AppSpacing.m),
                         Text(m.label),
                       ],
                     ),
@@ -440,24 +497,39 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
   Widget _buildDateField() {
     return InkWell(
       onTap: _pickDate,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadius.md),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.l,
+          vertical: AppSpacing.l,
+        ),
         decoration: BoxDecoration(
-          color: _colorCard,
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_outlined,
-                color: _colorGold, size: 20),
-            const SizedBox(width: 12),
-            const Text('Data',
-                style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const Icon(
+              Icons.calendar_today_outlined,
+              color: AppColors.gold,
+              size: 20,
+            ),
+            const SizedBox(width: AppSpacing.m),
+            const Text(
+              'Data',
+              style: TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.body,
+              ),
+            ),
             const Spacer(),
-            Text(formatDate(_date),
-                style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(
+              formatDate(_date),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       ),
@@ -469,25 +541,32 @@ class _TransactionFormScreenState extends State<TransactionFormScreen> {
     required String label,
     required IconData icon,
     int maxLines = 1,
+    String? hint,
   }) {
     return TextField(
       controller: controller,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon, color: _colorGold, size: 20),
+        labelStyle: const TextStyle(color: AppColors.textSec),
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppColors.textTertiary),
+        prefixIcon: Icon(icon, color: AppColors.gold, size: 20),
         filled: true,
-        fillColor: _colorCard,
+        fillColor: AppColors.card,
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide:
-              BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(
+            color: AppColors.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(
+            color: AppColors.gold,
+            width: 1.5,
+          ),
         ),
       ),
     );

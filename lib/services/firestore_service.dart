@@ -7,16 +7,19 @@ import '../models/ingredient.dart';
 import '../models/ingredient_offer.dart';
 import '../models/price_audit_log.dart';
 import '../models/product.dart';
+import '../utils/audit_builder.dart';
+import '../utils/offer_comparator.dart';
+import '../utils/offer_rules.dart';
+import '../utils/recurrence.dart';
+import 'storage_service.dart';
 
-/// Servico de acesso ao Firestore do CashCtrl.
-///
-/// Todos os dados do usuario ficam sob users/{uid}/... (subcolecoes),
-/// garantindo o isolamento por UID exigido pelas regras (RN02).
 class FirestoreService {
-  FirestoreService({FirebaseFirestore? db})
-      : _db = db ?? FirebaseFirestore.instance;
+  FirestoreService({FirebaseFirestore? db, StorageService? storage})
+      : _db = db ?? FirebaseFirestore.instance,
+        _storage = storage;
 
   final FirebaseFirestore _db;
+  final StorageService? _storage;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
       _db.collection('users').doc(uid);
@@ -40,8 +43,6 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> _productCol(String uid) =>
       _userDoc(uid).collection('products');
 
-  // ---------------- PERFIL / NEGOCIO ----------------
-
   Future<void> saveUser(AppUser user) async {
     await _userDoc(user.uid).set(user.toMap(), SetOptions(merge: true));
   }
@@ -52,8 +53,6 @@ class FirestoreService {
     return AppUser.fromMap(uid, snap.data()!);
   }
 
-  // ---------------- TRANSACOES ----------------
-
   Stream<List<tx.AppTransaction>> transactionsStream(String uid) {
     return _txCol(uid)
         .orderBy('date', descending: true)
@@ -61,6 +60,79 @@ class FirestoreService {
         .map((qs) => qs.docs
             .map((d) => tx.AppTransaction.fromMap(d.id, d.data()))
             .toList());
+  }
+
+  Future<int> generateDueRecurrences(
+      String uid, List<tx.AppTransaction> transactions) async {
+    final now = DateTime.now();
+    final parents = transactions.where((t) {
+      if (t.generatedFrom != null) return false;
+      final frequency = t.effectiveRecurrence;
+      if (frequency == null) return false;
+      if (t.date.isAfter(now) || t.date.isAtSameMomentAs(now)) return false;
+      return true;
+    });
+
+    final existingIds = <String>{};
+    for (final t in transactions) {
+      if (t.generatedFrom != null) {
+        existingIds.add(t.id);
+      }
+    }
+
+    var created = 0;
+    var batch = _db.batch();
+    var count = 0;
+
+    Future<void> commitIfNeeded({bool force = false}) async {
+      if (force || count >= 400) {
+        await batch.commit();
+        batch = _db.batch();
+        count = 0;
+      }
+    }
+
+    for (final parent in parents) {
+      final frequency = parent.effectiveRecurrence!;
+      final dates = computeDueOccurrences(
+        startDate: parent.date,
+        frequency: frequency,
+        now: now,
+      );
+      for (final date in dates) {
+        final id = '${parent.id}#${date.toIso8601String().substring(0, 10)}';
+        if (parent.skippedOccurrences.contains(id)) continue;
+        if (existingIds.contains(id)) continue;
+
+        final snap = await _txCol(uid).doc(id).get();
+        if (snap.exists) {
+          existingIds.add(id);
+          continue;
+        }
+
+        final generated = tx.AppTransaction(
+          id: id,
+          type: parent.type,
+          category: parent.category,
+          description: parent.description,
+          amount: parent.amount,
+          date: date,
+          paymentMethod: parent.paymentMethod,
+          recurring: false,
+          generatedFrom: parent.id,
+          notes: parent.notes,
+          receiptUrl: parent.receiptUrl,
+          budgetId: parent.budgetId,
+        );
+        batch.set(_txCol(uid).doc(id), generated.toMap());
+        count++;
+        created++;
+        await commitIfNeeded();
+      }
+    }
+
+    await commitIfNeeded(force: true);
+    return created;
   }
 
   Future<String> addTransaction(String uid, tx.AppTransaction t) async {
@@ -73,10 +145,24 @@ class FirestoreService {
   }
 
   Future<void> deleteTransaction(String uid, String id) async {
-    await _txCol(uid).doc(id).delete();
+    final docRef = _txCol(uid).doc(id);
+    final snap = await docRef.get();
+    if (snap.exists) {
+      final data = snap.data()!;
+      final generatedFrom = data['generatedFrom'] as String?;
+      if (generatedFrom != null && generatedFrom.isNotEmpty) {
+        final parentRef = _txCol(uid).doc(generatedFrom);
+        final batch = _db.batch();
+        batch.update(parentRef, {
+          'skippedOccurrences': FieldValue.arrayUnion([id]),
+        });
+        batch.delete(docRef);
+        await batch.commit();
+        return;
+      }
+    }
+    await docRef.delete();
   }
-
-  // ---------------- ORCAMENTOS ----------------
 
   Stream<List<Budget>> budgetsStream(String uid) {
     return _budgetCol(uid)
@@ -99,8 +185,6 @@ class FirestoreService {
     await _budgetCol(uid).doc(id).delete();
   }
 
-  // ---------------- INSUMOS ----------------
-
   Stream<List<Ingredient>> ingredientsStream(String uid) {
     return _ingredientCol(uid)
         .orderBy('createdAt', descending: true)
@@ -113,12 +197,10 @@ class FirestoreService {
     final batch = _db.batch();
     final docRef = _ingredientCol(uid).doc();
     batch.set(docRef, ing.toMap());
-    final log = PriceAuditLog(
-      action: 'ingredient.create',
-      entityType: 'ingredient',
+    final log = AuditBuilder.ingredientCreate(
       entityId: docRef.id,
-      summary: 'Insumo ${ing.name} criado',
-      newPrice: ing.purchasePrice,
+      name: ing.name,
+      purchasePrice: ing.purchasePrice,
     );
     final logRef = _auditLogCol(uid).doc();
     batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
@@ -133,12 +215,10 @@ class FirestoreService {
     data.remove('offers');
     data.remove('activeOfferId');
     batch.set(docRef, data, SetOptions(merge: true));
-    final log = PriceAuditLog(
-      action: 'ingredient.update',
-      entityType: 'ingredient',
+    final log = AuditBuilder.ingredientUpdate(
       entityId: ing.id,
-      summary: 'Insumo ${ing.name} atualizado',
-      newPrice: ing.purchasePrice,
+      name: ing.name,
+      purchasePrice: ing.purchasePrice,
     );
     final logRef = _auditLogCol(uid).doc();
     batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
@@ -149,12 +229,7 @@ class FirestoreService {
     final batch = _db.batch();
     final docRef = _ingredientDoc(uid, id);
     batch.delete(docRef);
-    final log = PriceAuditLog(
-      action: 'ingredient.delete',
-      entityType: 'ingredient',
-      entityId: id,
-      summary: 'Insumo removido',
-    );
+    final log = AuditBuilder.ingredientDelete(entityId: id);
     final logRef = _auditLogCol(uid).doc();
     batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
     await batch.commit();
@@ -188,75 +263,45 @@ class FirestoreService {
       currentActiveId = null;
     }
 
-    final normalizedSupplier = offer.supplier.trim().toLowerCase();
-    final existingIndex = current.indexWhere(
-        (o) => o.supplier.trim().toLowerCase() == normalizedSupplier);
+    final fallbackId = offer.id.isEmpty ? _ingredientCol(uid).doc().id : '';
+    final result = applyOfferUpsert(
+      current,
+      offer,
+      newOfferId: fallbackId,
+      now: now,
+    );
 
     final batch = _db.batch();
-    final String offerId;
+    final String offerId = result.offerId;
     final PriceAuditLog log;
 
-    if (existingIndex >= 0) {
-      final existing = current[existingIndex];
-      final updated = IngredientOffer(
-        id: existing.id,
-        supplier: offer.supplier,
-        packagePrice: offer.packagePrice,
-        packageQuantity: offer.packageQuantity,
-        isActive: offer.isActive,
-        source: offer.source,
-        notes: offer.notes,
-        createdAt: existing.createdAt,
-        updatedAt: now,
-      );
-      current[existingIndex] = updated;
-      offerId = existing.id;
-      log = PriceAuditLog(
-        action: 'offer.update',
-        entityType: 'offer',
+    if (result.isCreate) {
+      final created = result.offers.firstWhere((o) => o.id == offerId);
+      if (result.offers.length == 1) {
+        currentActiveId = offerId;
+      }
+      log = AuditBuilder.offerCreate(
         entityId: offerId,
-        summary: 'Oferta de ${updated.supplier} atualizada',
+        supplier: created.supplier,
+        packagePrice: created.packagePrice,
+        pricePerUnit: created.pricePerUnit,
+        source: created.source,
+      );
+    } else {
+      final updated = result.offers.firstWhere((o) => o.id == offerId);
+      final previous = result.previous!;
+      log = AuditBuilder.offerUpdate(
+        entityId: offerId,
         supplier: updated.supplier,
-        previousPrice: existing.packagePrice,
+        previousPrice: previous.packagePrice,
         newPrice: updated.packagePrice,
         pricePerUnit: updated.pricePerUnit,
         source: updated.source,
       );
-    } else {
-      if (current.length >= 15) {
-        throw StateError('Limite de 15 ofertas por insumo atingido.');
-      }
-      final isFirst = current.isEmpty;
-      offerId = offer.id.isNotEmpty ? offer.id : _ingredientCol(uid).doc().id;
-      final created = IngredientOffer(
-        id: offerId,
-        supplier: offer.supplier,
-        packagePrice: offer.packagePrice,
-        packageQuantity: offer.packageQuantity,
-        isActive: isFirst || offer.isActive,
-        source: offer.source,
-        notes: offer.notes,
-        createdAt: now,
-        updatedAt: now,
-      );
-      current.add(created);
-      if (isFirst) {
-        currentActiveId = offerId;
-      }
-      log = PriceAuditLog(
-        action: 'offer.create',
-        entityType: 'offer',
-        entityId: offerId,
-        summary: 'Oferta de ${created.supplier} criada',
-        supplier: created.supplier,
-        newPrice: created.packagePrice,
-        pricePerUnit: created.pricePerUnit,
-        source: created.source,
-      );
     }
 
     batch.set(docRef, {
-      'offers': current.map((o) => o.toMap()).toList(),
+      'offers': result.offers.map((o) => o.toMap()).toList(),
       'activeOfferId': currentActiveId,
     }, SetOptions(merge: true));
     final logRef = _auditLogCol(uid).doc();
@@ -286,21 +331,16 @@ class FirestoreService {
     final updated = offers
         .map((o) => o.copyWith(isActive: o.id == chosen.id))
         .toList();
-    final summary =
-        'Oferta de ${chosen.supplier} definida como ativa — ${chosen.pricePerUnit.toStringAsFixed(2)}/un';
 
     final batch = _db.batch();
     batch.set(docRef, {
       'offers': updated.map((o) => o.toMap()).toList(),
       'activeOfferId': chosen.id,
     }, SetOptions(merge: true));
-    final log = PriceAuditLog(
-      action: 'offer.setActive',
-      entityType: 'offer',
+    final log = AuditBuilder.offerSetActive(
       entityId: chosen.id,
-      summary: summary,
       supplier: chosen.supplier,
-      newPrice: chosen.packagePrice,
+      packagePrice: chosen.packagePrice,
       pricePerUnit: chosen.pricePerUnit,
       source: chosen.source,
     );
@@ -325,14 +365,11 @@ class FirestoreService {
     final index = offers.indexWhere((o) => o.id == offerId);
     if (index < 0) return;
     final target = offers[index];
+    final wasActive = (data['activeOfferId'] as String?) == offerId;
     offers[index] = target.copyWith(isActive: isActive);
     String? newActiveId = data['activeOfferId'] as String?;
-    String summary =
-        'Oferta de ${target.supplier} ${isActive ? 'ativada' : 'desativada'}';
     if (!isActive && newActiveId == offerId) {
       newActiveId = null;
-      summary =
-          'Oferta de ${target.supplier} desativada; ticket volta ao preço base';
     }
 
     final batch = _db.batch();
@@ -340,16 +377,14 @@ class FirestoreService {
       'offers': offers.map((o) => o.toMap()).toList(),
       'activeOfferId': newActiveId,
     }, SetOptions(merge: true));
-    final log = PriceAuditLog(
-      action: 'offer.toggleActive',
-      entityType: 'offer',
+    final log = AuditBuilder.offerToggleActive(
       entityId: offerId,
-      summary: summary,
       supplier: target.supplier,
-      previousPrice: target.packagePrice,
-      newPrice: isActive ? target.packagePrice : null,
+      isActive: isActive,
+      packagePrice: target.packagePrice,
       pricePerUnit: target.pricePerUnit,
       source: target.source,
+      wasActive: wasActive,
     );
     final logRef = _auditLogCol(uid).doc();
     batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
@@ -381,18 +416,59 @@ class FirestoreService {
       'offers': offers.map((o) => o.toMap()).toList(),
       'activeOfferId': newActiveId,
     }, SetOptions(merge: true));
-    final log = PriceAuditLog(
-      action: 'offer.delete',
-      entityType: 'offer',
+    final log = AuditBuilder.offerDelete(
       entityId: offerId,
-      summary: 'Oferta de ${target.supplier} removida',
       supplier: target.supplier,
-      previousPrice: target.packagePrice,
+      packagePrice: target.packagePrice,
       pricePerUnit: target.pricePerUnit,
       source: target.source,
     );
     final logRef = _auditLogCol(uid).doc();
     batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
+    await batch.commit();
+  }
+
+  Future<void> migrateLegacyOffers(String uid, Ingredient ingredient) async {
+    if (ingredient.offers.isNotEmpty) return;
+    if (ingredient.purchasePrice <= 0 || ingredient.packageQuantity <= 0) return;
+
+    final docRef = _ingredientDoc(uid, ingredient.id);
+    final snap = await docRef.get();
+    if (!snap.exists) return;
+    final data = snap.data()!;
+    final alreadyMigrated = (data['legacyMigrated'] as bool?) == true;
+    if (alreadyMigrated) return;
+    final rawOffers = data['offers'];
+    if (rawOffers is List && rawOffers.isNotEmpty) return;
+
+    final now = DateTime.now();
+    final legacy = OfferComparator.syntheticLegacyOffer(ingredient);
+    final migrated = IngredientOffer(
+      id: legacy.id,
+      supplier: legacy.supplier,
+      packagePrice: legacy.packagePrice,
+      packageQuantity: legacy.packageQuantity,
+      isActive: legacy.isActive,
+      source: legacy.source,
+      notes: legacy.notes,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    final batch = _db.batch();
+    batch.set(docRef, {
+      'offers': [migrated.toMap()],
+      'activeOfferId': migrated.id,
+      'legacyMigrated': true,
+    }, SetOptions(merge: true));
+    final log = AuditBuilder.migration(
+      entityId: ingredient.id,
+      summary: 'Produto ${ingredient.name}: preço base migrado para oferta',
+      newPrice: migrated.packagePrice,
+      pricePerUnit: migrated.pricePerUnit,
+    );
+    final logRef = _auditLogCol(uid).doc();
+    batch.set(logRef, log.toMap(now.add(const Duration(days: 180))));
     await batch.commit();
   }
 
@@ -407,7 +483,58 @@ class FirestoreService {
             .toList());
   }
 
-  // ---------------- PRODUTOS / FICHA TECNICA ----------------
+  Future<AuditLogPage> fetchPriceAuditLogs(
+    String uid, {
+    int limit = 50,
+    DocumentSnapshot? startAfter,
+  }) async {
+    var query = _auditLogCol(uid)
+        .orderBy('timestamp', descending: true)
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    final snap = await query.get();
+    final logs = snap.docs
+        .map((d) => PriceAuditLog.fromMap(d.data()))
+        .toList();
+    final lastDoc = snap.docs.isNotEmpty ? snap.docs.last : null;
+    final hasMore = snap.docs.length == limit;
+    return AuditLogPage(logs: logs, lastDoc: lastDoc, hasMore: hasMore);
+  }
+
+  Future<void> purgeUserData(String uid) async {
+    final colRefs = [
+      _txCol(uid),
+      _budgetCol(uid),
+      _ingredientCol(uid),
+      _productCol(uid),
+      _auditLogCol(uid),
+    ];
+
+    var batch = _db.batch();
+    var count = 0;
+
+    Future<void> commitIfNeeded({bool force = false}) async {
+      if (force || count >= 400) {
+        await batch.commit();
+        batch = _db.batch();
+        count = 0;
+      }
+    }
+
+    for (final col in colRefs) {
+      final snap = await col.get();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+        count++;
+        await commitIfNeeded();
+      }
+    }
+
+    batch.delete(_userDoc(uid));
+    await commitIfNeeded(force: true);
+  }
 
   Stream<List<Product>> productsStream(String uid) {
     return _productCol(uid)
@@ -418,15 +545,75 @@ class FirestoreService {
   }
 
   Future<String> addProduct(String uid, Product p) async {
-    final ref = await _productCol(uid).add(p.toMap());
+    final batch = _db.batch();
+    final ref = _productCol(uid).doc();
+    batch.set(ref, p.toMap());
+    final log = AuditBuilder.productCreate(
+      entityId: ref.id,
+      name: p.name,
+      salePrice: p.salePrice,
+    );
+    final logRef = _auditLogCol(uid).doc();
+    batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
+    await batch.commit();
     return ref.id;
   }
 
   Future<void> updateProduct(String uid, Product p) async {
-    await _productCol(uid).doc(p.id).set(p.toMap());
+    final docRef = _productCol(uid).doc(p.id);
+    final snap = await docRef.get();
+    final previous =
+        snap.exists ? Product.fromMap(snap.id, snap.data()!) : null;
+
+    final batch = _db.batch();
+    batch.set(docRef, p.toMap());
+    final log = AuditBuilder.productUpdate(
+      entityId: p.id,
+      name: p.name,
+      previousSalePrice: previous?.salePrice,
+      newSalePrice: p.salePrice,
+    );
+    final logRef = _auditLogCol(uid).doc();
+    batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
+    await batch.commit();
   }
 
   Future<void> deleteProduct(String uid, String id) async {
-    await _productCol(uid).doc(id).delete();
+    final docRef = _productCol(uid).doc(id);
+    final snap = await docRef.get();
+    String? photoUrl;
+    Product? previous;
+    if (snap.exists) {
+      final data = snap.data()!;
+      photoUrl = data['photoUrl'] as String?;
+      previous = Product.fromMap(snap.id, data);
+    }
+
+    final batch = _db.batch();
+    batch.delete(docRef);
+    final log = AuditBuilder.productDelete(
+      entityId: id,
+      name: previous?.name ?? 'Produto',
+      salePrice: previous?.salePrice,
+    );
+    final logRef = _auditLogCol(uid).doc();
+    batch.set(logRef, log.toMap(DateTime.now().add(const Duration(days: 180))));
+    await batch.commit();
+
+    if (photoUrl != null && photoUrl.isNotEmpty) {
+      _storage?.deleteFile(photoUrl).catchError((_) {});
+    }
   }
+}
+
+class AuditLogPage {
+  final List<PriceAuditLog> logs;
+  final DocumentSnapshot? lastDoc;
+  final bool hasMore;
+
+  const AuditLogPage({
+    required this.logs,
+    required this.lastDoc,
+    required this.hasMore,
+  });
 }

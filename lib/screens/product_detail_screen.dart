@@ -4,41 +4,41 @@ import 'package:provider/provider.dart';
 import '../models/ingredient.dart';
 import '../providers/ingredient_provider.dart';
 import '../providers/product_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/product_calculator.dart';
 import '../utils/offer_comparator.dart';
+import '../widgets/alert_banner.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/economy_summary_card.dart';
 
 class ProductDetailScreen extends StatelessWidget {
   const ProductDetailScreen({super.key});
 
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   @override
   Widget build(BuildContext context) {
     final productId = ModalRoute.of(context)?.settings.arguments as String?;
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Ticket do Produto',
+        title: const Text('Ticket da Ficha',
             style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold)),
         centerTitle: true,
         actions: [
           if (productId != null)
             PopupMenuButton<String>(
-              color: _colorCard,
-              icon: const Icon(Icons.more_vert, color: Colors.white),
+              color: AppColors.card,
+              icon: const Icon(Icons.more_vert, color: AppColors.textPrimary),
               onSelected: (v) async {
                 if (v == 'edit') {
                   if (!context.mounted) return;
@@ -50,11 +50,7 @@ class ProductDetailScreen extends StatelessWidget {
                     await context.read<ProductProvider>().deleteProduct(productId);
                     if (!context.mounted) return;
                     Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                          content: Text('Produto excluído.'),
-                          backgroundColor: _colorGold),
-                    );
+                    AppToast.success(context, 'Ficha técnica excluída.');
                   }
                 }
               },
@@ -62,19 +58,20 @@ class ProductDetailScreen extends StatelessWidget {
                 PopupMenuItem(
                     value: 'edit',
                     child: Text('Editar',
-                        style: TextStyle(color: Colors.white))),
+                        style: TextStyle(color: AppColors.textPrimary))),
                 PopupMenuItem(
                     value: 'delete',
                     child: Text('Excluir',
-                        style: TextStyle(color: Colors.red))),
+                        style: TextStyle(color: AppColors.danger))),
               ],
             ),
         ],
       ),
       body: productId == null
-          ? const Center(
-              child: Text('Produto não encontrado.',
-                  style: TextStyle(color: Colors.white54)))
+          ? Center(
+              child: Text('Ficha técnica não encontrada.',
+                  style: TextStyle(
+                      color: AppColors.textPrimary.withValues(alpha: 0.7))))
           : Consumer2<ProductProvider, IngredientProvider>(
               builder: (context, pp, ip, _) {
                 final product = pp.list
@@ -86,15 +83,17 @@ class ProductDetailScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const Icon(Icons.search_off,
-                            color: _colorTextSec, size: 40),
+                            color: AppColors.textSec, size: 40),
                         const SizedBox(height: 8),
-                        const Text('Produto não encontrado.',
-                            style: TextStyle(color: Colors.white54)),
+                        Text('Ficha técnica não encontrada.',
+                            style: TextStyle(
+                                color: AppColors.textPrimary
+                                    .withValues(alpha: 0.7))),
                         const SizedBox(height: 16),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(context),
                           style: ElevatedButton.styleFrom(
-                              backgroundColor: _colorGreenPrimary),
+                              backgroundColor: AppColors.greenPrimary),
                           child: const Text('Voltar',
                               style: TextStyle(color: Colors.white)),
                         ),
@@ -118,13 +117,15 @@ class ProductDetailScreen extends StatelessWidget {
         children: [
           Text(t.product.name,
               style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.title,
                   fontWeight: FontWeight.bold)),
           if (t.product.description.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(t.product.description,
-                style: const TextStyle(color: _colorTextSec, fontSize: 14)),
+                style: const TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.body)),
           ],
           const SizedBox(height: 24),
           _buildVerdictCard(t),
@@ -145,41 +146,29 @@ class ProductDetailScreen extends StatelessWidget {
             },
           ),
           const SizedBox(height: 24),
-          _buildSectionTitle('Receita por ingrediente', Icons.restaurant_menu),
+          _buildSectionTitle('Receita por produto', Icons.restaurant_menu),
           const SizedBox(height: 12),
           if (t.hasMissingIngredients)
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                  color: Colors.orange.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: Colors.orange.withValues(alpha: 0.4))),
-              child: const Row(
-                children: [
-                  Icon(Icons.warning_amber, color: Colors.orange, size: 18),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                        'Um ou mais insumos foram removidos. O custo pode estar incompleto.',
-                        style: TextStyle(color: Colors.orange, fontSize: 12)),
-                  ),
-                ],
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: AlertBanner(
+                message:
+                    'Um ou mais produtos foram removidos. O custo pode estar incompleto.',
+                icon: Icons.warning_amber,
               ),
             ),
-          for (final line in t.lines) _buildIngredientLine(line),
+          for (final line in t.lines) _buildProductLine(line, t.totalCost),
           const SizedBox(height: 8),
-          _costSummaryRow('Subtotal ingredientes',
+          _costSummaryRow('Subtotal produtos',
               formatCurrencyAbs(t.ingredientsTotal)),
           _costSummaryRow('Mão de obra', formatCurrencyAbs(t.laborCost)),
           _costSummaryRow('Embalagem', formatCurrencyAbs(t.packagingCost)),
-          const Divider(color: Colors.white24, height: 24),
+          const Divider(color: AppColors.border, height: 24),
           _costSummaryRow('Custo total', formatCurrencyAbs(t.totalCost),
               bold: true),
           _costSummaryRow('Preço de venda', formatCurrencyAbs(t.salePrice),
               bold: true),
-          const Divider(color: Colors.white24, height: 24),
+          const Divider(color: AppColors.border, height: 24),
           const SizedBox(height: 8),
           _buildFinalVerdict(t),
           const SizedBox(height: 16),
@@ -191,12 +180,12 @@ class ProductDetailScreen extends StatelessWidget {
   Widget _buildSectionTitle(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, color: _colorGold, size: 18),
+        Icon(icon, color: AppColors.gold, size: 18),
         const SizedBox(width: 8),
         Text(title,
             style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
+                color: AppColors.textPrimary,
+                fontSize: AppTypography.section,
                 fontWeight: FontWeight.bold)),
       ],
     );
@@ -204,7 +193,7 @@ class ProductDetailScreen extends StatelessWidget {
 
   Widget _buildVerdictCard(TicketResult t) {
     final isLucro = t.isLucro;
-    final color = isLucro ? Colors.green : Colors.red;
+    final color = isLucro ? AppColors.success : AppColors.danger;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -216,67 +205,123 @@ class ProductDetailScreen extends StatelessWidget {
           Icon(isLucro ? Icons.check_circle : Icons.cancel,
               color: color, size: 40),
           const SizedBox(height: 8),
-          Text(
-              isLucro ? 'ESTE PRODUTO DÁ LUCRO' : 'ESTE PRODUTO DÁ PREJUÍZO',
+          Text(isLucro ? 'Dá lucro' : 'Dá prejuízo',
               style: TextStyle(
-                  color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+                  color: color,
+                  fontSize: AppTypography.section,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(
-              '${isLucro ? '+' : ''}${formatCurrency(t.profit)}',
-              style: TextStyle(
-                  color: color, fontSize: 36, fontWeight: FontWeight.bold)),
+          Text('${isLucro ? '+' : ''}${formatCurrency(t.profit)}',
+              style: AppTypography.number(
+                  color: color,
+                  fontSize: AppTypography.hero,
+                  fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
           Text(
               'Margem de ${t.marginPercent.toStringAsFixed(1)}%  •  Markup ${t.markup.toStringAsFixed(2)}x',
-              style: const TextStyle(color: _colorTextSec, fontSize: 13)),
+              style: const TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.body)),
         ],
       ),
     );
   }
 
-  Widget _buildIngredientLine(LineCost line) {
+  Widget _buildProductLine(LineCost line, double totalCost) {
+    final showShare = !line.missing && totalCost > 0;
+    final share =
+        showShare ? (line.lineCost / totalCost).clamp(0.0, 1.0).toDouble() : 0.0;
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: _colorCard, borderRadius: BorderRadius.circular(10)),
-      child: Row(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.science_outlined, color: _colorGold, size: 18),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Row(
+            children: [
+              const Icon(Icons.science_outlined,
+                  color: AppColors.gold, size: 18),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(line.item.ingredientName,
+                        style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    if (line.missing)
+                      const Text('Produto removido do cadastro',
+                          style: TextStyle(
+                              color: AppColors.danger,
+                              fontSize: AppTypography.caption))
+                    else
+                      Text(
+                          '${line.item.quantity.toStringAsFixed(line.item.quantity % 1 == 0 ? 0 : 2)} ${line.ingredient?.unit.label ?? ''} × ${formatCurrencyAbs(line.unitPrice)}/${line.ingredient?.unit.label ?? ''}',
+                          style: const TextStyle(
+                              color: AppColors.textSec,
+                              fontSize: AppTypography.caption)),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 96,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    const Text('custo',
+                        style: TextStyle(
+                            color: AppColors.textSec,
+                            fontSize: AppTypography.caption)),
+                    Text(
+                        line.missing
+                            ? '—'
+                            : formatCurrencyAbs(line.lineCost),
+                        style: const TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (showShare) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.pill),
+              child: LinearProgressIndicator(
+                value: share,
+                minHeight: 6,
+                backgroundColor: AppColors.background,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppColors.gold),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Row(
               children: [
-                Text(line.item.ingredientName,
+                const Expanded(
+                  child: Text('Participação no custo',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: AppColors.textSec,
+                          fontSize: AppTypography.caption)),
+                ),
+                const SizedBox(width: 8),
+                Text('${(share * 100).toStringAsFixed(1)}% do custo total',
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                if (line.missing)
-                  const Text('Insumo removido do parque',
-                      style: TextStyle(color: Colors.red, fontSize: 11))
-                else
-                  Text(
-                      '${line.item.quantity.toStringAsFixed(line.item.quantity % 1 == 0 ? 0 : 2)} ${line.ingredient?.unit.label ?? ''} × ${formatCurrencyAbs(line.unitPrice)}/${line.ingredient?.unit.label ?? ''}',
-                      style:
-                          const TextStyle(color: _colorTextSec, fontSize: 11)),
+                        color: AppColors.gold,
+                        fontSize: AppTypography.caption,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
-          ),
-          SizedBox(
-            width: 90,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text('custo',
-                    style: TextStyle(color: _colorTextSec, fontSize: 10)),
-                Text(line.missing ? '—' : formatCurrencyAbs(line.lineCost),
-                    style: const TextStyle(
-                        color: _colorGold, fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -290,13 +335,15 @@ class ProductDetailScreen extends StatelessWidget {
         children: [
           Text(label,
               style: TextStyle(
-                  color: bold ? Colors.white : Colors.white70,
+                  color: bold
+                      ? AppColors.textPrimary
+                      : AppColors.textPrimary.withValues(alpha: 0.7),
                   fontWeight: bold ? FontWeight.bold : FontWeight.normal)),
           Text(value,
               style: TextStyle(
-                  color: bold ? Colors.white : _colorGold,
+                  color: bold ? AppColors.textPrimary : AppColors.gold,
                   fontWeight: FontWeight.bold,
-                  fontSize: bold ? 16 : 14)),
+                  fontSize: bold ? AppTypography.section : AppTypography.body)),
         ],
       ),
     );
@@ -304,7 +351,7 @@ class ProductDetailScreen extends StatelessWidget {
 
   Widget _buildFinalVerdict(TicketResult t) {
     final isLucro = t.isLucro;
-    final color = isLucro ? Colors.green : Colors.red;
+    final color = isLucro ? AppColors.success : AppColors.danger;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       decoration: BoxDecoration(
@@ -315,14 +362,14 @@ class ProductDetailScreen extends StatelessWidget {
         children: [
           const Text('Veredito',
               style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold)),
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold)),
           Row(
             children: [
               Icon(isLucro ? Icons.trending_up : Icons.trending_down,
                   color: color, size: 20),
               const SizedBox(width: 6),
-              Text(
-                  isLucro ? 'LUCRO' : 'PREJUÍZO',
+              Text(isLucro ? 'Lucro' : 'Prejuízo',
                   style: TextStyle(
                       color: color, fontWeight: FontWeight.bold)),
             ],
@@ -336,21 +383,22 @@ class ProductDetailScreen extends StatelessWidget {
     return showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: _colorCard,
-        title: const Text('Excluir produto?',
-            style: TextStyle(color: Colors.white, fontSize: 18)),
-        content: const Text(
+        backgroundColor: AppColors.card,
+        title: const Text('Excluir ficha técnica?',
+            style: TextStyle(color: AppColors.textPrimary, fontSize: AppTypography.section)),
+        content: Text(
             'A ficha técnica e o ticket serão removidos permanentemente.',
-            style: TextStyle(color: Colors.white70)),
+            style: TextStyle(
+                color: AppColors.textPrimary.withValues(alpha: 0.7))),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child:
-                  const Text('Cancelar', style: TextStyle(color: _colorGold))),
+              child: const Text('Cancelar',
+                  style: TextStyle(color: AppColors.gold))),
           TextButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child:
-                  const Text('Excluir', style: TextStyle(color: Colors.red))),
+              child: const Text('Excluir',
+                  style: TextStyle(color: AppColors.danger))),
         ],
       ),
     );

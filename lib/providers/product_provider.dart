@@ -85,13 +85,6 @@ class ProductProvider extends ChangeNotifier {
     await _firestore.deleteProduct(_uid!, id);
   }
 
-  Product? findByBarcode(String code) {
-    for (final p in _list) {
-      if (p.barcode == code) return p;
-    }
-    return null;
-  }
-
   Product? findById(String id) {
     for (final p in _list) {
       if (p.id == id) return p;

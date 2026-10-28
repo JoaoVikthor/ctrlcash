@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/budget.dart';
-import '../providers/budget_provider.dart';
-import '../utils/categories.dart';
-import '../utils/format.dart';
+import '../../models/budget.dart';
+import '../../providers/budget_provider.dart';
+import '../../theme/app_colors.dart';
+import '../../theme/app_radius.dart';
+import '../../theme/app_spacing.dart';
+import '../../theme/app_typography.dart';
+import '../../utils/categories.dart';
+import '../../utils/format.dart';
+import '../../widgets/app_toast.dart';
 
 class BudgetFormScreen extends StatefulWidget {
   final Budget? editing;
@@ -16,14 +21,10 @@ class BudgetFormScreen extends StatefulWidget {
 }
 
 class _BudgetFormScreenState extends State<BudgetFormScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   final TextEditingController _limitController = TextEditingController();
   late String _category;
   bool _saving = false;
+  String? _limitError;
 
   @override
   void initState() {
@@ -45,14 +46,10 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
     final raw = _limitController.text.trim().replaceAll(',', '.');
     final value = double.tryParse(raw);
     if (value == null || value <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Informe um limite válido maior que zero.'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() => _limitError = 'Informe um limite válido maior que zero.');
       return false;
     }
+    setState(() => _limitError = null);
     return true;
   }
 
@@ -76,23 +73,14 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
         await prov.updateBudget(b);
       }
       if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.editing == null
-              ? 'Orçamento criado!'
-              : 'Orçamento atualizado!'),
-          backgroundColor: _colorGreenPrimary,
-        ),
+      AppToast.success(
+        context,
+        widget.editing == null ? 'Orçamento criado!' : 'Orçamento atualizado!',
       );
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro ao salvar: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppToast.error(context, 'Erro ao salvar: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -102,62 +90,74 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.editing != null;
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           isEdit ? 'Editar Orçamento' : 'Novo Orçamento',
           style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xxl,
+          vertical: AppSpacing.l,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Defina uma categoria e o limite mensal de gastos.',
-                style: TextStyle(color: Colors.grey, fontSize: 13)),
-            const SizedBox(height: 24),
+            const Text(
+              'Defina a categoria e o limite mensal de custos do negócio.',
+              style: TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.body,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            _buildQuickCategories(),
+            const SizedBox(height: AppSpacing.l),
             _buildCategoryPicker(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildLimitField(),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.l),
             _buildInfoCard(),
           ],
         ),
       ),
       bottomNavigationBar: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.xxl,
+            AppSpacing.s,
+            AppSpacing.xxl,
+            AppSpacing.xxl,
+          ),
           child: ElevatedButton(
             onPressed: _saving ? null : _save,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _colorGreenPrimary,
-              disabledBackgroundColor:
-                  _colorGreenPrimary.withValues(alpha: 0.5),
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              elevation: 0,
-            ),
             child: _saving
                 ? const SizedBox(
                     height: 20,
                     width: 20,
                     child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2),
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
                   )
                 : Text(
                     isEdit ? 'Salvar Alterações' : 'Criar Orçamento',
                     style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
           ),
         ),
@@ -165,27 +165,98 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
     );
   }
 
+  Widget _buildQuickCategories() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Sugestões rápidas',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.s),
+        Wrap(
+          spacing: AppSpacing.s,
+          runSpacing: AppSpacing.s,
+          children: kExpenseCategories.map((c) {
+            final selected = c.name == _category;
+            return Material(
+              color: selected ? AppColors.greenPrimary : AppColors.card,
+              clipBehavior: Clip.antiAlias,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                side: BorderSide(
+                  color: selected
+                      ? AppColors.greenPrimary
+                      : AppColors.textPrimary.withValues(alpha: 0.08),
+                ),
+              ),
+              child: InkWell(
+                onTap: () => setState(() => _category = c.name),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.m,
+                    vertical: AppSpacing.s,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        c.icon,
+                        size: 16,
+                        color: selected ? Colors.white : c.color,
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Text(
+                        c.name,
+                        style: TextStyle(
+                          color: selected ? Colors.white : AppColors.textSec,
+                          fontSize: AppTypography.secondary,
+                          fontWeight:
+                              selected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategoryPicker() {
+    final options = <CategoryDef>[...kExpenseCategories];
+    if (!options.any((c) => c.name == _category)) {
+      options.insert(0, findCategory(_category));
+    }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _category,
-          dropdownColor: _colorCard,
+          dropdownColor: AppColors.card,
           isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: _colorGold),
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-          items: kExpenseCategories
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.body,
+          ),
+          items: options
               .map((c) => DropdownMenuItem(
                     value: c.name,
                     child: Row(
                       children: [
                         Icon(c.icon, color: c.color, size: 20),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: AppSpacing.m),
                         Text(c.name),
                       ],
                     ),
@@ -200,23 +271,31 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
   Widget _buildLimitField() {
     return TextField(
       controller: _limitController,
+      onChanged: (_) => setState(() => _limitError = null),
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         labelText: 'Limite mensal (R\$)',
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: const Icon(Icons.attach_money, color: _colorGold, size: 20),
+        labelStyle: const TextStyle(color: AppColors.textSec),
+        errorText: _limitError,
+        prefixIcon:
+            const Icon(Icons.attach_money, color: AppColors.gold, size: 20),
         prefixText: 'R\$ ',
-        prefixStyle: const TextStyle(color: _colorGold),
+        prefixStyle: const TextStyle(color: AppColors.gold),
         filled: true,
-        fillColor: _colorCard,
+        fillColor: AppColors.card,
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: BorderSide(
+            color: AppColors.textPrimary.withValues(alpha: 0.08),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          borderSide: const BorderSide(
+            color: AppColors.gold,
+            width: 1.5,
+          ),
         ),
       ),
     );
@@ -228,27 +307,33 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
     final diaria = value > 0 ? value / 30 : 0.0;
     final semanal = value > 0 ? value / 4.33 : 0.0;
     return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(top: AppSpacing.s),
+      padding: const EdgeInsets.all(AppSpacing.l),
       decoration: BoxDecoration(
-        color: _colorGreenPrimary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.greenPrimary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         border: Border.all(
-            color: _colorGreenPrimary.withValues(alpha: 0.3), width: 1),
+          color: AppColors.greenPrimary.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(
             children: [
-              Icon(Icons.lightbulb_outline, color: _colorGold, size: 18),
-              SizedBox(width: 8),
-              Text('Referência',
-                  style: TextStyle(
-                      color: _colorGold, fontWeight: FontWeight.bold)),
+              Icon(Icons.lightbulb_outline, color: AppColors.gold, size: 18),
+              SizedBox(width: AppSpacing.s),
+              Text(
+                'Referência',
+                style: TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.m),
           _refRow('Por dia', formatCurrencyAbs(diaria)),
           _refRow('Por semana', formatCurrencyAbs(semanal)),
         ],
@@ -258,14 +343,21 @@ class _BudgetFormScreenState extends State<BudgetFormScreen> {
 
   Widget _refRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70)),
-          Text(value,
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: const TextStyle(color: AppColors.textSec),
+          ),
+          Text(
+            value,
+            style: AppTypography.number(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );

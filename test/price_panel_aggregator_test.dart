@@ -9,11 +9,13 @@ IngredientOffer _offer({
   required double packagePrice,
   required double packageQuantity,
   bool isActive = true,
+  String productName = '',
 }) {
   final now = DateTime(2024, 1, 1);
   return IngredientOffer(
     id: id,
     supplier: supplier,
+    productName: productName,
     packagePrice: packagePrice,
     packageQuantity: packageQuantity,
     isActive: isActive,
@@ -171,7 +173,7 @@ void main() {
       expect(byName['Açúcar cristal']!.bestOffer!.supplier, 'Mercado Bom Farto');
     });
 
-    test('insumo sem ofertas é legacyOnly sem economia', () {
+    test('produto sem ofertas é legacyOnly sem economia', () {
       final map = {
         'leite': _ingredient(
           id: 'leite',
@@ -290,6 +292,69 @@ void main() {
 
       expect(filtered.length, 1);
       expect(filtered.first.ingredient.name, 'Pão francês');
+    });
+
+    test('filtra por productName da oferta sem acento e case-insensitive', () {
+      final map = {
+        'farinha': _ingredient(
+          id: 'farinha',
+          name: 'Farinha de trigo',
+          unit: IngredientUnit.kilo,
+          purchasePrice: 5.00,
+          packageQuantity: 1,
+          offers: [
+            _offer(
+              id: 'f1',
+              supplier: 'Moinho Sul',
+              packagePrice: 25.00,
+              packageQuantity: 5,
+              productName: 'Farinha Tipo 1 Pacote 5 kg',
+            ),
+            _offer(
+              id: 'f2',
+              supplier: 'Atacado Norte',
+              packagePrice: 4.90,
+              packageQuantity: 1,
+            ),
+          ],
+          activeOfferId: 'f2',
+        ),
+        'acucar': _ingredient(
+          id: 'acucar',
+          name: 'Açúcar cristal',
+          unit: IngredientUnit.kilo,
+          purchasePrice: 4.29,
+          packageQuantity: 1,
+          offers: [
+            _offer(
+              id: 'a1',
+              supplier: 'Atacado Norte',
+              packagePrice: 4.29,
+              packageQuantity: 1,
+            ),
+          ],
+          activeOfferId: 'a1',
+        ),
+      };
+      final panel = PricePanelAggregator.buildPanel(map);
+
+      final byProductName = PricePanelAggregator.filterPanel(
+        panel,
+        query: 'tipo 1',
+      );
+      expect(byProductName.length, 1);
+      expect(byProductName.first.ingredient.name, 'Farinha de trigo');
+
+      final byProductNameAndSupplier = PricePanelAggregator.filterPanel(
+        panel,
+        query: 'farinha tipo',
+        supplier: 'Moinho Sul',
+      );
+      expect(byProductNameAndSupplier.length, 1);
+      expect(byProductNameAndSupplier.first.ingredient.name, 'Farinha de trigo');
+
+      final noMatch = PricePanelAggregator.filterPanel(panel, query: 'moida');
+      expect(noMatch, isEmpty);
     });
   });
 

@@ -1,37 +1,38 @@
 # CtrlCash / CashCtrl — Documentação do App
 
-Aplicativo de controle financeiro pessoal e de negócio em Flutter com Firebase, focado em calcular o ticket de produtos (ficha técnica) para mostrar se cada item dá lucro ou prejuízo.
+Aplicativo de controle financeiro pessoal e de negócio em Flutter com Firebase, focado em calcular o ticket das fichas técnicas para mostrar se cada item dá lucro ou prejuízo.
 
 ## Visão Geral
 
 O CashCtrl é um app mobile/web de gestão financeira que permite ao usuário:
 
-- Autenticar-se com e-mail/senha, Google ou Facebook (Firebase Auth).
-- Gerenciar transações financeiras (receitas e despesas) com categorias, métodos de pagamento e recorrência.
+- Autenticar-se com e-mail/senha (Firebase Auth).
+- Gerenciar transações financeiras (receitas e despesas) com categorias de negócio, métodos de pagamento e recorrência.
 - Criar e acompanhar orçamentos mensais por categoria, com progresso em tempo real.
-- Visualizar relatórios com gráficos (pizza, barras) e KPIs (lucro líquido, margem, ROI).
-- Cadastrar um parque de insumos (materiais comprados para fabricar produtos), com cálculo automático de preço por unidade.
-- Comparar ofertas de fornecedores por insumo (preço por unidade, ranking com badges "ATIVA"/"melhor"), escolhendo manualmente a oferta ativa que alimenta o ticket, com cartão informativo de economia possível.
-- Consultar o histórico de auditoria de preços (logs append-only em `price_audit_logs`, com retenção de 180 dias).
-- Criar fichas técnicas de produtos (ex.: um sanduíche), selecionando insumos, quantidades, mão de obra e embalagem.
-- Visualizar o ticket do produto: custo por ingrediente, custo total, ganho/perda e veredito final de lucro ou prejuízo.
-- Identificar produtos por código de barras (scanner via câmera) ou foto, com reconhecimento automático de produtos já cadastrados.
+- Acompanhar um dashboard operacional com saldo do negócio, atalho para relatórios, ações rápidas e movimentações recentes.
+- Analisar o desempenho em uma página única de relatórios (KPIs, receitas vs custos, custos por categoria e top 5) e exportar os dados para Excel (3 abas: Resumo, Mensal e Transações).
+- Cadastrar um parque de produtos (itens comprados para fabricar as fichas técnicas), com cálculo automático de preço por unidade.
+- Comparar ofertas de fornecedores por produto (preço por unidade, ranking com badges "ATIVA"/"melhor"), com nome do produto anunciado pelo fornecedor, escolhendo manualmente a oferta ativa que alimenta o ticket, com cartão informativo de economia possível.
+- Cadastrar ofertas já na criação do produto (mini-form inline de fornecedor + produto + preço + quantidade, até 15 ofertas).
+- Consultar o histórico de auditoria de preços (logs append-only em `price_audit_logs`; o campo `expireAt` é reservado para política TTL de 180 dias, a ativar no console).
+- Criar fichas técnicas (ex.: um sanduíche), selecionando produtos, quantidades, mão de obra e embalagem.
+- Visualizar o ticket da ficha técnica: custo por item com participação percentual no custo, custo total, ganho/perda e veredito final de lucro ou prejuízo.
 - Editar perfil com foto, configurar notificações, segurança e acessar a central de ajuda.
 
 ## Stack / Tecnologias
 
 - **Linguagem:** Dart (SDK ^3.11.5)
-- **Framework:** Flutter
+- **Framework:** Flutter (Android e Web; iOS adiado)
 - **Backend:** Firebase
   - `firebase_core` — inicialização
-  - `firebase_auth` — autenticação (e-mail/senha, Google, Facebook)
+  - `firebase_auth` — autenticação (e-mail/senha)
   - `cloud_firestore` — banco de dados NoSQL (CRUD isolado por UID)
-  - `firebase_storage` — upload de fotos (perfil, produto)
-- **Login social:** `google_sign_in`, `flutter_facebook_auth`
+  - `firebase_storage` — upload de fotos (perfil e ficha técnica)
 - **Estado:** `provider` (ChangeNotifierProvider, StreamProvider)
-- **Gráficos:** `fl_chart` (pizza, barras, linhas)
-- **Câmera/Imagem:** `image_picker` (fotos de perfil e produto), `mobile_scanner` (leitura de código de barras/QR)
-- **Ícones:** `font_awesome_flutter`
+- **Gráficos:** `fl_chart` (barras e pizza)
+- **Imagem:** `image_picker` (fotos de perfil e produto)
+- **Notificações locais:** `flutter_local_notifications`
+- **Excel:** `excel` (geração do workbook), `path_provider` + `share_plus` (nativo) e `web` (download no navegador)
 - **Config:** `flutter_dotenv` (variáveis de ambiente para chaves do Firebase)
 
 ## Design System
@@ -44,7 +45,7 @@ Paleta de cores centralizada e reutilizada em todas as telas:
 - Cards: `0xFF142A20`
 - Texto Secundário: `0xFF7A8B83`
 
-Logo: `assets/images/logo.png` (camaleão nas cores do app, fundo transparente).
+Logo: `assets/images/logo.png` (camaleão nas cores do app, fundo transparente). No Dashboard, a AppBar aplica o camaleão dourado com `ColorFiltered`/`BlendMode.srcIn` no dourado institucional (`goldLogo`).
 
 ## Estrutura de Pastas
 
@@ -52,65 +53,77 @@ Logo: `assets/images/logo.png` (camaleão nas cores do app, fundo transparente).
 lib/
   main.dart                      # Inicializa .env, Firebase, providers e rotas
   firebase_options.dart          # Lê config do Firebase de .env (sem hardcoded keys)
-  home_screen.dart               # Dashboard com saldo, gráficos e transações recentes
+  home_screen.dart               # Dashboard operacional (saldo, ações rápidas, recentes)
   budgets_screen.dart            # Orçamentos com progresso calculado em tempo real
   expenses_screen.dart           # Transações com filtros, busca e exclusão
-  reports_screen.dart            # Relatórios com KPIs e gráficos (fl_chart)
+  reports_screen.dart            # Página única de relatórios + exportação Excel
   settings_screen.dart           # Configurações com perfil do usuário
   models/                        # Models de dados (puros, com fromMap/toMap)
     app_user.dart                # Perfil do usuário + dados do negócio
     transaction.dart             # Transação (receita/despesa, método de pagamento)
     budget.dart                  # Orçamento mensal por categoria
-    ingredient.dart              # Insumo (preço de compra → preço por unidade; ofertas[])
-    ingredient_offer.dart        # Oferta de fornecedor embutida no insumo (Sprint 2)
-    price_audit_log.dart         # Log de auditoria de preços (append-only, Sprint 2)
-    product.dart                 # Produto/ficha técnica (receita + custos + venda)
+    ingredient.dart              # Produto (preço de compra → preço por unidade; ofertas[])
+    ingredient_offer.dart        # Oferta de fornecedor (supplier, productName, preço/qtd)
+    price_audit_log.dart         # Log de auditoria de preços (append-only)
+    product.dart                 # Ficha técnica (receita + custos + venda; barcode legado)
   providers/                     # Estado global (ChangeNotifier + streams)
     user_provider.dart           # Perfil + negócio (Firestore)
     transaction_provider.dart    # Stream de transações
     budget_provider.dart         # Stream de orçamentos
-    ingredient_provider.dart    # Stream de insumos (mapa id→Ingredient) + ofertas e auditLogs
-    product_provider.dart       # Stream de produtos + findByBarcode
+    ingredient_provider.dart     # Stream de produtos (mapa id→Ingredient) + ofertas e auditLogs
+    product_provider.dart        # Stream de fichas técnicas
   services/                      # Camada de acesso ao Firebase
-    auth_service.dart           # FirebaseAuth (login, cadastro, logout)
-    firestore_service.dart       # CRUD no Firestore (isolado por UID) + ofertas com log em batch e migração lazy
-    storage_service.dart         # Upload de imagens (Storage, isolado por UID)
+    auth_service.dart            # FirebaseAuth (login, cadastro, logout)
+    firestore_service.dart       # CRUD no Firestore (isolado por UID) + ofertas com log em batch
+    storage_service.dart         # Upload de imagens (Storage) com retry de cancelamento
+    notification_service.dart    # Notificações locais (orçamento, recorrência, margem)
   screens/                       # Telas
-    login_screen.dart           # Login (e-mail, Google, Facebook)
-    cadastro_screen.dart        # Cadastro multi-etapa (pessoal + negócio)
+    login_screen.dart            # Login (e-mail/senha)
+    cadastro_screen.dart         # Cadastro multi-etapa (pessoal + negócio)
     transaction_form_screen.dart # Nova/editar transação
-    budget_form_screen.dart     # Novo/editar orçamento
-    ingredients_screen.dart     # Lista de insumos (parque de insumos, badge "N ofertas")
-    ingredient_form_screen.dart # Cadastrar/editar insumo (seções "Fornecedor padrão" e "Ofertas")
-    ingredient_offers_screen.dart # Comparativo de fornecedores (ranking por preço/unidade, Sprint 2)
-    offer_form_screen.dart      # Nova/editar oferta de fornecedor (Sprint 2)
-    audit_logs_screen.dart      # Histórico de auditoria de preços, somente leitura (Sprint 2)
-    products_screen.dart        # Lista de produtos com veredito de lucro/prejuízo
-    product_form_screen.dart    # Ficha técnica (receita + custos + foto + barcode)
-    product_detail_screen.dart  # Ticket do produto (custo por ingrediente, veredito)
-    product_scanner_screen.dart # Scanner de código de barras + foto
+    budget_form_screen.dart      # Novo/editar orçamento
+    ingredients_screen.dart      # Lista de produtos + atalho de comparação de preços
+    ingredient_form_screen.dart  # Cadastrar/editar produto (ofertas inline na criação)
+    ingredient_offers_screen.dart # Comparativo de fornecedores do produto
+    offer_form_screen.dart       # Nova/editar oferta de fornecedor
+    audit_logs_screen.dart       # Histórico de auditoria de preços, somente leitura
+    products_screen.dart         # Lista de fichas técnicas com veredito de lucro/prejuízo
+    product_form_screen.dart     # Ficha técnica (receita + custos + foto)
+    product_detail_screen.dart   # Ticket da ficha técnica (participação % por item)
+    compare_prices_screen.dart   # Painel "Comparar preços" (produto/fornecedor)
     settings/
-      edit_profile_screen.dart  # Editar perfil com foto
-      notifications_screen.dart # Preferências de notificações
-      security_screen.dart      # Segurança e privacidade
-      help_screen.dart          # Central de ajuda
+      edit_profile_screen.dart   # Editar perfil com foto
+      notifications_screen.dart  # Preferências de notificações
+      security_screen.dart       # Segurança e privacidade
+      help_screen.dart           # Central de ajuda
+      terms_privacy_screen.dart  # Termos e privacidade
+  theme/                         # Design tokens (cores, tipografia, espaçamento)
   utils/                         # Utilitários e lógica pura
-    categories.dart             # Categorias padrão (despesa/receita) com ícones
-    format.dart                 # Formatação de moeda (R$) e datas (pt-BR)
-    product_calculator.dart     # Calculadora do ticket (lucro/prejuízo, margem)
-    offer_comparator.dart       # Comparação de ofertas: ranking, delta e cenário "melhor fornecedor" (Sprint 2)
+    categories.dart              # Categorias de negócio (despesa/receita) + legadas
+    format.dart                  # Formatação de moeda (R$) e datas (pt-BR)
+    product_calculator.dart      # Calculadora do ticket (lucro/prejuízo, margem)
+    offer_comparator.dart        # Comparação de ofertas: ranking, delta e cenário
+    offer_rules.dart             # Upsert de ofertas (match por id) e limite de 15
+    pending_offers.dart          # Ofertas em memória na criação do produto
+    price_panel_aggregator.dart  # Agregação do painel de preços
+    report_export.dart           # Workbook Excel (Resumo, Mensal, Transações)
+    report_export_native.dart    # Salva e compartilha o .xlsx (Android/iOS)
+    report_export_web.dart       # Download do .xlsx via Blob no navegador
+    audit_builder.dart           # Resumos de auditoria no vocabulário da UI
+    recurrence.dart, unit_converter.dart, app_info.dart
   widgets/                       # Widgets reutilizáveis
-    app_drawer.dart             # Menu lateral com navegação
-    app_branded_header.dart     # AppBar padrão com logo
-    category_pie_chart.dart     # Gráfico de pizza de despesas (fl_chart)
+    app_drawer.dart              # Menu lateral com navegação
+    app_branded_header.dart      # AppBar padrão com logo (opção dourada)
+    category_pie_chart.dart      # Gráfico de pizza de despesas (fl_chart)
+    export_excel_button.dart     # Botão "Exportar Excel"
     offer_count_badge.dart, best_price_chip.dart, active_offer_marker.dart,
     delta_price_text.dart, section_header.dart, search_field.dart,
     filter_chip_row.dart, empty_state.dart, error_state.dart,
     offer_limit_banner.dart, confirm_action_dialog.dart, offer_card.dart,
     audit_entry_tile.dart, economy_summary_card.dart
-                                # Widgets do comparativo de fornecedores/auditoria (Sprint 2)
+                                 # Widgets do comparativo de fornecedores/auditoria
 android/                          # Configuração Android (google-services.json local)
-web/                             # Build web
+web/                             # Configuração web
 context/                          # Regras do assistente (erros a evitar)
 docs/                            # Esta documentação
 firestore.rules                  # Regras de segurança do Firestore (isolamento por UID)
@@ -124,19 +137,22 @@ Todos os dados ficam sob `users/{uid}/...`, garantindo isolamento total por usu�
 - `users/{uid}` — perfil do usuário (nome, e-mail, empresa, CNPJ, segmento, telefone, endereço, photoUrl)
 - `users/{uid}/transactions/{txId}` — transações (tipo, categoria, valor, data, método de pagamento, recorrência)
 - `users/{uid}/budgets/{budgetId}` — orçamentos (categoria, limite mensal)
-- `users/{uid}/ingredients/{ingredientId}` — insumos (nome, unidade, preço de compra, quantidade da embalagem, `offers[]` com até 15 ofertas de fornecedores e `activeOfferId`)
-- `users/{uid}/products/{productId}` — produtos/fichas técnicas (nome, receita[], mão de obra, embalagem, preço de venda, photoUrl, barcode)
+- `users/{uid}/ingredients/{ingredientId}` — produtos (nome, unidade, preço de compra, quantidade da embalagem, `offers[]` com até 15 ofertas de fornecedores e `activeOfferId`)
+- `users/{uid}/products/{productId}` — fichas técnicas (nome, receita[], mão de obra, embalagem, preço de venda, photoUrl; `barcode` mantido apenas para legado)
 - `users/{uid}/price_audit_logs/{logId}` — logs de auditoria de preços (append-only: `action`, `entityType`, `entityId`, `summary`, preços antes/depois, `timestamp` serverTimestamp, `expireAt` +180 dias)
 
-## O Ticket do Produto (recurso central)
+## O Ticket da Ficha Técnica (recurso central)
 
-O coração do app é mostrar ao usuário o ticket de cada produto. O fluxo:
+O coração do app é mostrar ao usuário o ticket de cada ficha técnica. O fluxo:
 
-1. Usuário cadastra insumos no parque (ex.: pão R$ 10,00/20un → R$ 0,50/un).
-2. Cria uma ficha técnica (ex.: "Sanduíche X") selecionando insumos e quantidades (2 fatias de pão, 100g de queijo, etc.), mão de obra e embalagem.
-3. O app calcula: custo por ingrediente (qtd × preço por unidade), subtotal de ingredientes, custo total, preço de venda, lucro/prejuízo e margem.
-4. O ticket mostra o veredito: "ESTE PRODUTO DÁ LUCRO" ou "ESTE PRODUTO DÁ PREJUÍZO".
-5. O usuário pode identificar produtos por código de barras ou foto; na primeira vez cadastra, nas seguintes o app reconhece automaticamente.
+1. Usuário cadastra produtos no parque (ex.: pão R$ 10,00/20un → R$ 0,50/un), opcionalmente já com ofertas de fornecedores.
+2. Cria uma ficha técnica (ex.: "Sanduíche X") selecionando produtos e quantidades (2 fatias de pão, 100g de queijo, etc.), mão de obra e embalagem.
+3. O app calcula: custo por item (qtd × preço por unidade), participação percentual de cada item no custo total, subtotal, custo total, preço de venda, lucro/prejuízo e margem.
+4. O ticket mostra o veredito: "Dá lucro" ou "Dá prejuízo", com margem e markup.
+
+## Relatórios e Exportação
+
+A aba Relatórios reúne, em página única: KPIs (lucro líquido, margem, total de receitas e total de custos), gráfico "Receitas vs Custos" dos últimos 6 meses, "Custos por categoria" e "Top 5 Categorias". O botão "Exportar Excel" gera `relatorio_cashctrl_ultimos_6_meses.xlsx` com as abas Resumo, Mensal e Transações; no Android o arquivo é salvo em diretório temporário e compartilhado pela share sheet, e na web o download é feito via Blob + âncora.
 
 ## Segurança
 
@@ -144,14 +160,17 @@ O coração do app é mostrar ao usuário o ticket de cada produto. O fluxo:
 - `.env` e `google-services.json` estão no `.gitignore` (não versionados).
 - `firestore.rules` e `storage.rules` garantem isolamento por UID (cada usuário só acessa seus próprios dados).
 - Keystores e `local.properties` também estão no `.gitignore`.
+- No build web, as variáveis do `.env` são embutidas no bundle JS; a segurança efetiva vem das regras do Firebase.
 
 ## Como rodar localmente
 
 1. Copie `.env.example` para `.env` e preencha os valores do Firebase.
 2. Coloque `google-services.json` em `android/app/` (baixe do Firebase Console).
-3. Publique as regras ANTES de rodar o app atualizado: `firebase deploy --only firestore:rules` (o app grava em `price_audit_logs` desde a primeira mutação).
+3. Publique as regras ANTES de rodar o app atualizado: `firebase deploy --only firestore:rules,storage` (o app grava em `price_audit_logs` desde a primeira mutação).
 4. `flutter pub get`
-5. `flutter run`
+5. `flutter run` (dispositivo) ou `flutter run -d chrome` (web)
+6. Testes: `flutter test` • Verificação estática: `dart analyze .`
+7. Builds: `flutter build apk --release` e `flutter build web`
 
 ## Repositório
 

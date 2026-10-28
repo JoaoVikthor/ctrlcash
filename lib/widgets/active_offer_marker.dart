@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+
 class ActiveOfferMarker extends StatelessWidget {
   final bool active;
 
@@ -9,16 +14,19 @@ class ActiveOfferMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     if (active) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xFF165A41),
-          borderRadius: BorderRadius.circular(20),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.s,
+          vertical: 3,
         ),
-        child: const Text(
+        decoration: BoxDecoration(
+          color: AppColors.greenPrimary,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Text(
           'ATIVA',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 10,
+            fontSize: AppTypography.caption,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -26,16 +34,19 @@ class ActiveOfferMarker extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.s,
+        vertical: 3,
       ),
-      child: const Text(
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.textPrimary.withValues(alpha: 0.14)),
+        borderRadius: BorderRadius.circular(AppRadius.pill),
+      ),
+      child: Text(
         'INATIVA',
         style: TextStyle(
-          color: Color(0xFF7A8B83),
-          fontSize: 10,
+          color: AppColors.textSec,
+          fontSize: AppTypography.caption,
           fontWeight: FontWeight.bold,
         ),
       ),

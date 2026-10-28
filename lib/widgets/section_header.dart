@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+
 class SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -17,14 +21,14 @@ class SectionHeader extends StatelessWidget {
     final trailingWidget = trailing;
     return Row(
       children: [
-        Icon(icon, color: const Color(0xFFB89775), size: 18),
-        const SizedBox(width: 8),
+        Icon(icon, color: AppColors.gold, size: 18),
+        const SizedBox(width: AppSpacing.s),
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: AppTypography.section,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../providers/ingredient_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
 import '../utils/price_panel_aggregator.dart';
+import '../widgets/alert_banner.dart';
 import '../widgets/app_branded_header.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/empty_state.dart';
@@ -21,11 +26,6 @@ class ComparePricesScreen extends StatefulWidget {
 }
 
 class _ComparePricesScreenState extends State<ComparePricesScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   int _tabIndex = 0;
   String _query = '';
   String _supplier = '';
@@ -47,7 +47,7 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
     final provider = context.watch<IngredientProvider>();
 
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       drawer: const AppDrawer(currentRoute: 'compare-prices'),
       appBar: const AppBrandedHeader(title: 'Comparar preços'),
       body: _buildBody(provider),
@@ -57,12 +57,12 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
   Widget _buildBody(IngredientProvider provider) {
     if (provider.loading) {
       return const Center(
-        child: CircularProgressIndicator(color: _colorGold),
+        child: CircularProgressIndicator(color: AppColors.gold),
       );
     }
     if (provider.error != null) {
       return ErrorState(
-        message: 'Erro ao carregar ofertas: ${provider.error}',
+        message: 'Não foi possível carregar as ofertas.',
         onRetry: provider.reload,
       );
     }
@@ -96,8 +96,12 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
             onChanged: (value) => setState(() => _query = value),
           ),
           const SizedBox(height: 12),
+          _buildSectionLabel('Ordenar por'),
+          const SizedBox(height: 6),
           _buildSortChips(),
           const SizedBox(height: 12),
+          _buildSectionLabel('Fornecedor'),
+          const SizedBox(height: 6),
           _buildSupplierFilter(entries),
           const SizedBox(height: 16),
           if (summary.suppliersCount == 1) _buildOneSupplierBanner(),
@@ -126,22 +130,24 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
         padding: const EdgeInsets.all(12),
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.green.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.green.withValues(alpha: 0.35)),
+          color: AppColors.success.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+              color: AppColors.success.withValues(alpha: 0.35)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.trending_down, color: Colors.green, size: 17),
-                SizedBox(width: 8),
+                const Icon(Icons.trending_down,
+                    color: AppColors.success, size: 17),
+                const SizedBox(width: 8),
                 Text(
                   'Economia possível',
                   style: TextStyle(
-                    color: Colors.green,
-                    fontSize: 13,
+                    color: AppColors.success,
+                    fontSize: AppTypography.body,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -153,17 +159,18 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
                 children: [
                   TextSpan(
                     text: formatCurrencyAbs(summary.economySumPerUnit),
-                    style: const TextStyle(
-                      color: _colorGold,
-                      fontSize: 20,
+                    style: AppTypography.number(
+                      color: AppColors.gold,
+                      fontSize: AppTypography.title,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   TextSpan(
-                    text: ' · combinados por unidade em ${summary.productsPayMore} insumos',
+                    text:
+                        ' · combinados por unidade em ${summary.productsPayMore} produtos',
                     style: const TextStyle(
-                      color: _colorTextSec,
-                      fontSize: 12,
+                      color: AppColors.textSec,
+                      fontSize: AppTypography.secondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -179,12 +186,27 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: _colorCard,
-        borderRadius: BorderRadius.circular(12),
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
       ),
       child: const Text(
         'Você já usa o melhor preço entre as ofertas cadastradas.',
-        style: TextStyle(color: _colorTextSec, fontSize: 13),
+        style: TextStyle(
+            color: AppColors.textSec, fontSize: AppTypography.body),
+      ),
+    );
+  }
+
+  Widget _buildSectionLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(left: AppSpacing.xs),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.textSec,
+          fontSize: AppTypography.caption,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -200,29 +222,31 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
   Widget _buildSupplierFilter(List<ProductPanelEntry> entries) {
     final suppliers = _supplierOptions(entries);
     if (suppliers.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: suppliers.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _buildSupplierChip(
-              label: 'Todos',
-              selected: _supplier.isEmpty,
-              onTap: () => setState(() => _supplier = ''),
-            );
-          }
-          final name = suppliers[index - 1];
-          return _buildSupplierChip(
-            label: name,
-            selected: _isSameSupplier(name, _supplier),
-            onTap: () => setState(() => _supplier = name),
-          );
-        },
-      ),
+    final options = <String>['Todos'];
+    for (final name in suppliers) {
+      options.add(_shortName(name));
+    }
+    return AppFilterChipRow(
+      options: options,
+      selectedIndex: _supplier.isEmpty
+          ? 0
+          : suppliers.indexWhere((s) => _isSameSupplier(s, _supplier)) + 1,
+      onSelected: (index) {
+        setState(() {
+          _supplier = index == 0 ? '' : suppliers[index - 1];
+        });
+      },
     );
+  }
+
+  String _shortName(String name) {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return '?';
+    final parts = trimmed.split(RegExp(r'\s+'));
+    if (parts.length == 1) {
+      return trimmed.length > 3 ? trimmed.substring(0, 3) : trimmed;
+    }
+    return parts.take(2).map((p) => p.isNotEmpty ? p[0] : '').join();
   }
 
   List<String> _supplierOptions(List<ProductPanelEntry> entries) {
@@ -238,86 +262,25 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
     return names;
   }
 
-  Widget _buildSupplierChip({
-    required String label,
-    required bool selected,
-    required VoidCallback onTap,
-  }) {
-    final display = label == 'Todos' ? label : _capitalize(label);
-    final chip = GestureDetector(
-      onTap: onTap,
-      child: Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFF165A41) : _colorCard,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          display.length > 18 ? '${display.substring(0, 18)}…' : display,
-          style: TextStyle(
-            color: selected ? Colors.white : _colorTextSec,
-            fontSize: 13,
-            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ),
-    );
-    if (label != 'Todos' && label.length > 18) {
-      return Tooltip(
-        message: display,
-        child: chip,
-      );
-    }
-    return chip;
-  }
-
-  String _capitalize(String value) {
-    if (value.isEmpty) return value;
-    return value[0].toUpperCase() + value.substring(1);
-  }
-
   bool _isSameSupplier(String a, String b) {
     return a.trim().toLowerCase() == b.trim().toLowerCase();
   }
 
   Widget _buildOneSupplierBanner() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.orange.withValues(alpha: 0.13),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.orange.withValues(alpha: 0.38)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.info_outline, color: Colors.orange, size: 18),
-          SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              'Cadastre mais fornecedores para ver o comparativo.',
-              style: TextStyle(
-                color: Colors.orange,
-                fontSize: 11,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return const AlertBanner(
+      message: 'Cadastre mais fornecedores para ver o comparativo.',
+      icon: Icons.info_outline,
     );
   }
 
   Widget _buildNoFilterResult() {
     return Column(
       children: [
-        const Icon(Icons.search_off, color: _colorTextSec, size: 48),
+        const Icon(Icons.search_off, color: AppColors.textSec, size: 48),
         const SizedBox(height: 12),
-        const Text(
+        Text(
           'Nenhuma oferta corresponde aos filtros.',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppColors.textPrimary),
         ),
         const SizedBox(height: 8),
         TextButton(
@@ -329,7 +292,7 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
           child: const Text(
             'Limpar filtros',
             style: TextStyle(
-              color: _colorGold,
+              color: AppColors.gold,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -369,7 +332,7 @@ class _ComparePricesScreenState extends State<ComparePricesScreen> {
       title: 'Nenhuma oferta cadastrada ainda',
       message:
           'Cadastre preços de fornecedores para comparar e escolher quem entra no ticket.',
-      actionLabel: 'Gerenciar insumos',
+      actionLabel: 'Gerenciar produtos',
       onAction: () => Navigator.pushNamed(context, '/ingredients'),
     );
   }

@@ -8,11 +8,11 @@ import '../models/price_audit_log.dart';
 import '../services/firestore_service.dart';
 import 'user_provider.dart';
 
-/// Provider do parque de insumos do usuario logado.
+/// Provider do parque de produtos do usuario logado.
 ///
 /// Escuta o stream do Firestore (ingredients/{uid}/...) e expoe um mapa
 /// id -> Ingredient para que o ProductProvider consiga calcular o ticket
-/// dos produtos a partir dos precos atuais dos insumos.
+/// das fichas tecnicas a partir dos precos atuais dos produtos.
 class IngredientProvider extends ChangeNotifier {
   IngredientProvider({FirestoreService? firestore})
       : _firestore = firestore ?? FirestoreService();

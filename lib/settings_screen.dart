@@ -1,59 +1,90 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../providers/user_provider.dart';
-import '../services/auth_service.dart';
-import '../widgets/app_branded_header.dart';
-import '../widgets/app_drawer.dart';
+import 'providers/user_provider.dart';
+import 'services/auth_service.dart';
+import 'theme/app_colors.dart';
+import 'theme/app_spacing.dart';
+import 'theme/app_typography.dart';
+import 'widgets/app_branded_header.dart';
+import 'widgets/app_drawer.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  static const colorBackground = Color(0xFF0D1E16);
-  static const colorGold = Color(0xFFB89775);
-  static const colorCard = Color(0xFF142A20);
-  static const colorGreenPrimary = Color(0xFF165A41);
-  static const colorTextSec = Color(0xFF7A8B83);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: colorBackground,
+      backgroundColor: AppColors.background,
       drawer: const AppDrawer(currentRoute: 'settings'),
       appBar: const AppBrandedHeader(title: 'Configurações'),
       body: Consumer<UserProvider>(
         builder: (context, prov, _) {
           return ListView(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             children: [
               _buildProfileHeader(prov),
-              const SizedBox(height: 24),
-              const Text('Ajustes do Sistema',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              _buildSettingsTile(
-                  context, Icons.person_outline, 'Editar Perfil', '/settings/profile'),
-              _buildSettingsTile(context, Icons.notifications_none,
-                  'Notificações', '/settings/notifications'),
-              _buildSettingsTile(context, Icons.lock_outline,
-                  'Segurança e Privacidade', '/settings/security'),
-              _buildSettingsTile(context, Icons.help_outline,
-                  'Ajuda & Suporte', '/settings/help'),
-              const SizedBox(height: 30),
-              ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Sair da Conta',
+              const SizedBox(height: AppSpacing.xxl),
+              Text(
+                'Ajustes do Sistema',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.title,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              Card(
+                child: Column(
+                  children: [
+                    _buildSettingsTile(
+                      context,
+                      Icons.person_outline,
+                      'Editar Perfil',
+                      '/settings/profile',
+                    ),
+                    const Divider(height: 1),
+                    _buildSettingsTile(
+                      context,
+                      Icons.notifications_none,
+                      'Notificações',
+                      '/settings/notifications',
+                    ),
+                    const Divider(height: 1),
+                    _buildSettingsTile(
+                      context,
+                      Icons.lock_outline,
+                      'Segurança e Privacidade',
+                      '/settings/security',
+                    ),
+                    const Divider(height: 1),
+                    _buildSettingsTile(
+                      context,
+                      Icons.help_outline,
+                      'Ajuda & Suporte',
+                      '/settings/help',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xxl),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.logout, color: AppColors.danger),
+                  title: const Text(
+                    'Sair da Conta',
                     style: TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.bold)),
-                onTap: () async {
-                  final nav = Navigator.of(context);
-                  await context.read<AuthService>().signOut();
-                  nav.pushNamedAndRemoveUntil('/login', (route) => false);
-                },
-              )
+                      color: AppColors.danger,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () async {
+                    final nav = Navigator.of(context);
+                    await context.read<AuthService>().signOut();
+                    nav.pushNamedAndRemoveUntil('/login', (route) => false);
+                  },
+                ),
+              ),
             ],
           );
         },
@@ -69,66 +100,87 @@ class SettingsScreen extends StatelessWidget {
       if (n.isEmpty) return '?';
       return n[0].toUpperCase();
     }).join();
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          color: colorCard, borderRadius: BorderRadius.circular(16)),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: colorGreenPrimary,
-            child: Text(initials,
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.l),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: AppColors.greenPrimary,
+              child: Text(
+                initials,
                 style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white)),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(nome,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(email,
-                    style: const TextStyle(color: colorTextSec, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis),
-                if (user?.empresa != null && user!.empresa!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(user.empresa!,
-                      style: const TextStyle(color: colorGold, fontSize: 12),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ],
-              ],
+                  fontSize: AppTypography.title,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: AppSpacing.l),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nome,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: AppTypography.section,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    email,
+                    style: const TextStyle(
+                      color: AppColors.textSec,
+                      fontSize: AppTypography.body,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (user?.empresa != null && user!.empresa!.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      user.empresa!,
+                      style: const TextStyle(
+                        color: AppColors.gold,
+                        fontSize: AppTypography.secondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildSettingsTile(
-      BuildContext context, IconData icon, String title, String route) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-          color: colorCard, borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(icon, color: colorGold),
-        title: Text(title, style: const TextStyle(color: Colors.white)),
-        trailing: const Icon(Icons.arrow_forward_ios,
-            color: Colors.white54, size: 16),
-        onTap: () => Navigator.pushNamed(context, route),
+    BuildContext context,
+    IconData icon,
+    String title,
+    String route,
+  ) {
+    return ListTile(
+      leading: Icon(icon, color: AppColors.gold),
+      title: Text(
+        title,
+        style: const TextStyle(color: AppColors.textPrimary),
       ),
+      trailing: const Icon(
+        Icons.arrow_forward_ios,
+        color: AppColors.textSec,
+        size: 16,
+      ),
+      onTap: () => Navigator.pushNamed(context, route),
     );
   }
 }

@@ -3,6 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+import '../theme/app_typography.dart';
+import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,15 +17,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  String? _emailError;
+  String? _passwordError;
 
   @override
   void dispose() {
@@ -29,14 +31,46 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _login() async {
-    final String email = _emailController.text.trim();
-    final String password = _passwordController.text.trim();
+  void _clearEmailError() {
+    if (_emailError != null) setState(() => _emailError = null);
+  }
 
-    if (email.isEmpty || password.isEmpty) {
-      _mostrarErro('Preencha e-mail e senha.');
-      return;
+  void _clearPasswordError() {
+    if (_passwordError != null) setState(() => _passwordError = null);
+  }
+
+  bool _validarCampos() {
+    setState(() {
+      _emailError = null;
+      _passwordError = null;
+    });
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    bool valid = true;
+
+    if (email.isEmpty) {
+      _emailError = 'Informe o e-mail.';
+      valid = false;
+    } else if (!email.contains('@') || !email.contains('.')) {
+      _emailError = 'Informe um e-mail válido.';
+      valid = false;
     }
+
+    if (password.isEmpty) {
+      _passwordError = 'Informe a senha.';
+      valid = false;
+    }
+
+    if (!valid) setState(() {});
+    return valid;
+  }
+
+  Future<void> _login() async {
+    if (!_validarCampos()) return;
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     try {
@@ -56,13 +90,73 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _esqueceuSenha() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Recuperação de senha em breve.'),
-        backgroundColor: _colorGreenPrimary,
+  Future<void> _esqueceuSenha() async {
+    final controller = TextEditingController(text: _emailController.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.card,
+        title: Text(
+          'Recuperar senha',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: AppTypography.section,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: AppTextField(
+          controller: controller,
+          label: 'E-mail',
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.done,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancelar',
+              style: TextStyle(
+                color: AppColors.gold,
+                fontSize: AppTypography.body,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.greenPrimary,
+            ),
+            child: Text(
+              'Enviar',
+              style: TextStyle(
+                fontSize: AppTypography.body,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
+    controller.dispose();
+    if (email == null || email.isEmpty || !mounted) return;
+
+    setState(() => _isLoading = true);
+    try {
+      await context.read<AuthService>().sendPasswordResetEmail(email);
+      if (!mounted) return;
+      AppToast.success(
+        context,
+        'Se o e-mail existir, você receberá uma mensagem de redefinição.',
+      );
+    } on AuthException catch (e) {
+      _mostrarErro(e.message);
+    } on FirebaseAuthException catch (e) {
+      _mostrarErro(_mapFirebaseError(e));
+    } catch (_) {
+      _mostrarErro('Ocorreu um erro ao solicitar a redefinição.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   void _navegarParaDashboard() {
@@ -76,9 +170,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _mostrarErro(String mensagem) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mensagem), backgroundColor: Colors.red.shade700),
-    );
+    AppToast.error(context, mensagem);
   }
 
   String _mapFirebaseError(FirebaseAuthException e) {
@@ -101,172 +193,143 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: AppSpacing.xl,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 30),
+              const SizedBox(height: AppSpacing.xxxl),
               Image.asset(
                 'assets/images/logo_camaleao_dourado.png',
-                height: 90,
+                height: 84,
                 fit: BoxFit.contain,
               ),
-              const SizedBox(height: 12),
-              const Text(
+              const SizedBox(height: AppSpacing.m),
+              Text(
                 'CashCtrl',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.hero,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 8),
-              const Text(
+              const SizedBox(height: AppSpacing.s),
+              Text(
                 'Bem-vindo de volta!',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey, fontSize: 14),
+                style: TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.body,
+                ),
               ),
-              const SizedBox(height: 36),
-              _buildTextField(
+              const SizedBox(height: AppSpacing.xxxl),
+              AppTextField(
                 controller: _emailController,
                 label: 'E-mail',
+                hint: 'seu@email.com',
                 keyboardType: TextInputType.emailAddress,
-                prefixIcon: Icons.mail_outline,
+                textInputAction: TextInputAction.next,
+                errorText: _emailError,
+                onChanged: (_) => _clearEmailError(),
               ),
-              const SizedBox(height: 16),
-              _buildTextField(
+              const SizedBox(height: AppSpacing.l),
+              AppTextField(
                 controller: _passwordController,
                 label: 'Senha',
-                obscure: _obscurePassword,
-                prefixIcon: Icons.lock_outline,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                errorText: _passwordError,
+                onChanged: (_) => _clearPasswordError(),
                 suffix: IconButton(
                   icon: Icon(
                     _obscurePassword
                         ? Icons.visibility_off_outlined
                         : Icons.visibility_outlined,
-                    color: Colors.grey,
+                    color: AppColors.textSec,
                     size: 20,
                   ),
                   onPressed: () => setState(
-                      () => _obscurePassword = !_obscurePassword),
+                    () => _obscurePassword = !_obscurePassword,
+                  ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.s),
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: _isLoading ? null : _esqueceuSenha,
-                  child: const Text(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.s,
+                      vertical: AppSpacing.m,
+                    ),
+                    minimumSize: const Size(44, 44),
+                  ),
+                  child: Text(
                     'Esqueceu a senha?',
-                    style: TextStyle(color: _colorGold, fontSize: 13),
+                    style: TextStyle(
+                      color: AppColors.gold,
+                      fontSize: AppTypography.body,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
-              _buildPrimaryButton(
+              const SizedBox(height: AppSpacing.m),
+              ElevatedButton(
                 onPressed: _isLoading ? null : _login,
-                isLoading: _isLoading,
-                label: 'Entrar',
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                      child: CircularProgressIndicator(
+                        color: AppColors.textPrimary,
+                        strokeWidth: 2,
+                      ),
+                      )
+                    : const Text(
+                        'Entrar',
+                        style: TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: AppTypography.section,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xxl),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text(
+                  Text(
                     'É seu Primeiro Acesso? ',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
+                    style: TextStyle(
+                      color: AppColors.textSec,
+                      fontSize: AppTypography.body,
+                    ),
                   ),
                   GestureDetector(
                     onTap: _irParaCadastro,
-                    child: const Text(
+                    child: Text(
                       'Registre-se',
                       style: TextStyle(
-                        color: _colorGold,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                        color: AppColors.gold,
+                        fontSize: AppTypography.body,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
             ],
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    bool obscure = false,
-    TextInputType keyboardType = TextInputType.text,
-    IconData? prefixIcon,
-    Widget? suffix,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: prefixIcon != null
-            ? Icon(prefixIcon, color: _colorGold, size: 20)
-            : null,
-        suffixIcon: suffix,
-        filled: true,
-        fillColor: _colorCard,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPrimaryButton({
-    required VoidCallback? onPressed,
-    required bool isLoading,
-    required String label,
-  }) {
-    return ElevatedButton(
-      onPressed: onPressed,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _colorGreenPrimary,
-        disabledBackgroundColor: _colorGreenPrimary.withValues(alpha: 0.5),
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 0,
-      ),
-      child: isLoading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                color: Colors.white,
-                strokeWidth: 2,
-              ),
-            )
-          : Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
     );
   }
 }

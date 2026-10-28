@@ -8,6 +8,9 @@ class AppUser {
   final String? telefone;
   final String? endereco;
   final String? photoUrl;
+  final bool notifOrcamento;
+  final bool notifRecorrentes;
+  final bool notifMargem;
 
   const AppUser({
     required this.uid,
@@ -19,6 +22,9 @@ class AppUser {
     this.telefone,
     this.endereco,
     this.photoUrl,
+    this.notifOrcamento = true,
+    this.notifRecorrentes = true,
+    this.notifMargem = true,
   });
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> map) => AppUser(
@@ -31,6 +37,9 @@ class AppUser {
         telefone: map['telefone'] as String?,
         endereco: map['endereco'] as String?,
         photoUrl: map['photoUrl'] as String?,
+        notifOrcamento: (map['notifOrcamento'] ?? true) as bool,
+        notifRecorrentes: (map['notifRecorrentes'] ?? true) as bool,
+        notifMargem: (map['notifMargem'] ?? true) as bool,
       );
 
   Map<String, dynamic> toMap() => {
@@ -42,6 +51,9 @@ class AppUser {
         'telefone': telefone,
         'endereco': endereco,
         'photoUrl': photoUrl,
+        'notifOrcamento': notifOrcamento,
+        'notifRecorrentes': notifRecorrentes,
+        'notifMargem': notifMargem,
       };
 
   AppUser copyWith({
@@ -53,6 +65,9 @@ class AppUser {
     String? telefone,
     String? endereco,
     String? photoUrl,
+    bool? notifOrcamento,
+    bool? notifRecorrentes,
+    bool? notifMargem,
   }) =>
       AppUser(
         uid: uid,
@@ -64,5 +79,8 @@ class AppUser {
         telefone: telefone ?? this.telefone,
         endereco: endereco ?? this.endereco,
         photoUrl: photoUrl ?? this.photoUrl,
+        notifOrcamento: notifOrcamento ?? this.notifOrcamento,
+        notifRecorrentes: notifRecorrentes ?? this.notifRecorrentes,
+        notifMargem: notifMargem ?? this.notifMargem,
       );
 }

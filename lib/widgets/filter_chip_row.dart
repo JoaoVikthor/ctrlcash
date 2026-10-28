@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
+import '../theme/app_spacing.dart';
+
 class AppFilterChipRow extends StatelessWidget {
   final List<String> options;
   final int selectedIndex;
@@ -19,25 +24,23 @@ class AppFilterChipRow extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: options.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.s),
         itemBuilder: (context, index) {
           final selected = index == selectedIndex;
           return GestureDetector(
             onTap: () => onSelected(index),
             child: Container(
               alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.m + 2),
               decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFF165A41)
-                    : const Color(0xFF142A20),
-                borderRadius: BorderRadius.circular(20),
+                color: selected ? AppColors.greenPrimary : AppColors.card,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
               ),
               child: Text(
                 options[index],
                 style: TextStyle(
-                  color: selected ? Colors.white : const Color(0xFF7A8B83),
-                  fontSize: 13,
+                  color: selected ? Colors.white : AppColors.textSec,
+                  fontSize: AppTypography.secondary,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),

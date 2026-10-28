@@ -34,7 +34,7 @@ class TicketResult {
   double get markup => totalCost > 0 ? salePrice / totalCost : 0;
 }
 
-/// Custo de uma linha (um insumo) da ficha tecnica.
+/// Custo de uma linha (um produto) da ficha tecnica.
 class LineCost {
   final RecipeItem item;
   final Ingredient? ingredient;
@@ -53,7 +53,7 @@ class LineCost {
 
 /// Calculadora pura do ticket de um produto.
 ///
-/// Recebe o produto e o mapa de insumos disponiveis (id -> Ingredient)
+/// Recebe o produto e o mapa de produtos disponiveis (id -> Ingredient)
 /// e devolve o detalhamento: custo por ingrediente, custo total, lucro
 /// ou prejuizo e margem. Sem misturar com Widgets (RN do agente logic).
 class ProductCalculator {

@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-/// Uma linha da ficha tecnica: qtd usada de um insumo no produto.
+/// Uma linha da ficha tecnica: qtd usada de um produto na ficha.
 ///
-/// Guarda o [ingredientId] (referencia viva ao parque de insumos) e um
+/// Guarda o [ingredientId] (referencia viva ao parque de produtos) e um
 /// snapshot do [ingredientName] para nao quebrar a exibicao caso o
-/// insumo seja apagado. O custo da linha e calculado a partir do preco
-/// por unidade atual do insumo (ver [ProductCalculator]).
+/// produto seja apagado. O custo da linha e calculado a partir do preco
+/// por unidade atual do produto (ver [ProductCalculator]).
 class RecipeItem {
   final String ingredientId;
   final String ingredientName;
@@ -43,7 +43,7 @@ class RecipeItem {
 
 /// Produto / ficha tecnica (ticket).
 ///
-/// Consta de: lista de insumos ([recipe]) + [laborCost] (mao de obra) +
+/// Consta de: lista de produtos ([recipe]) + [laborCost] (mao de obra) +
 /// [packagingCost] (embalagem) + [salePrice] (preco de venda). O app
 /// calcula o custo total, lucro/prejuizo e margem para mostrar ao
 /// usuario se o produto deu lucro ou prejuizo.
@@ -145,7 +145,7 @@ class Product {
   double get fixedCost => laborCost + packagingCost;
 
   /// Margem brutaSobreCustoFixo: (preco - custo fixo) / preco * 100.
-  /// Ignora ingredientes (precisa dos precos dos insumos para o calculo
+  /// Ignora ingredientes (precisa dos precos dos produtos para o calculo
   /// completo — ver [ProductCalculator] em lib/utils/).
   double get fixedMarginPercent {
     if (salePrice <= 0) return 0;

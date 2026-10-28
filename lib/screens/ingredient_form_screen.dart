@@ -2,8 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../models/ingredient.dart';
+import '../models/ingredient_offer.dart';
 import '../providers/ingredient_provider.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_radius.dart';
+import '../theme/app_typography.dart';
 import '../utils/format.dart';
+import '../utils/offer_rules.dart';
+import '../utils/pending_offers.dart';
+import '../utils/unit_converter.dart';
+import '../widgets/alert_banner.dart';
+import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/section_header.dart';
 import '../widgets/active_offer_marker.dart';
 import '../widgets/best_price_chip.dart';
@@ -18,17 +28,25 @@ class IngredientFormScreen extends StatefulWidget {
 }
 
 class _IngredientFormScreenState extends State<IngredientFormScreen> {
-  static const Color _colorBackground = Color(0xFF0D1E16);
-  static const Color _colorGreenPrimary = Color(0xFF165A41);
-  static const Color _colorGold = Color(0xFFB89775);
-  static const Color _colorCard = Color(0xFF142A20);
-  static const Color _colorTextSec = Color(0xFF7A8B83);
-
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _qtyController = TextEditingController();
+  final TextEditingController _offerSupplierController =
+      TextEditingController();
+  final TextEditingController _offerProductNameController =
+      TextEditingController();
+  final TextEditingController _offerPriceController = TextEditingController();
+  final TextEditingController _offerQtyController = TextEditingController();
+  final List<IngredientOffer> _pendingOffers = [];
   IngredientUnit _unit = IngredientUnit.grama;
   bool _saving = false;
+  bool _showOfferForm = false;
+  String? _nameError;
+  String? _priceError;
+  String? _qtyError;
+  String? _offerSupplierError;
+  String? _offerPriceError;
+  String? _offerQtyError;
 
   @override
   void initState() {
@@ -50,32 +68,44 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
     _nameController.dispose();
     _priceController.dispose();
     _qtyController.dispose();
+    _offerSupplierController.dispose();
+    _offerProductNameController.dispose();
+    _offerPriceController.dispose();
+    _offerQtyController.dispose();
     super.dispose();
   }
 
   bool _validate() {
+    setState(() {
+      _nameError = null;
+      _priceError = null;
+      _qtyError = null;
+    });
+
     if (_nameController.text.trim().isEmpty) {
-      _toast('Informe o nome do insumo.');
+      setState(() => _nameError = 'Informe o nome do produto.');
+      AppToast.error(context, 'Informe o nome do produto.');
       return false;
     }
     final price =
         double.tryParse(_priceController.text.trim().replaceAll(',', '.'));
     if (price == null || price <= 0) {
-      _toast('Informe um preço de compra válido (> 0).');
+      setState(() => _priceError = 'Informe um preço de compra válido (> 0).');
+      AppToast.error(context, 'Informe um preço de compra válido (> 0).');
       return false;
     }
     final qty =
         double.tryParse(_qtyController.text.trim().replaceAll(',', '.'));
     if (qty == null || qty <= 0) {
-      _toast('Informe a quantidade da embalagem (> 0).');
+      setState(() => _qtyError = 'Informe a quantidade da embalagem (> 0).');
+      AppToast.error(context, 'Informe a quantidade da embalagem (> 0).');
       return false;
     }
     return true;
   }
 
   void _toast(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    AppToast.error(context, msg);
   }
 
   Future<void> _save() async {
@@ -103,19 +133,35 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
           );
       final prov2 = context.read<IngredientProvider>();
       if (widget.editing == null) {
-        await prov2.addIngredient(ing);
-      } else {
-        await prov2.updateIngredient(ing);
+        final newId = await prov2.addIngredient(ing);
+        var savedOffers = 0;
+        String? offerFailure;
+        for (final pending in _pendingOffers) {
+          try {
+            await prov2.upsertOffer(newId, pending);
+            savedOffers++;
+          } catch (e) {
+            offerFailure ??= e is StateError ? e.message : e.toString();
+          }
+        }
+        if (!mounted) return;
+        if (offerFailure != null) {
+          AppToast.error(
+              context,
+              'Produto cadastrado, mas $savedOffers de ${_pendingOffers.length} oferta(s) falharam: $offerFailure');
+        } else if (savedOffers > 0) {
+          AppToast.success(
+              context, 'Produto cadastrado com $savedOffers oferta(s)!');
+        } else {
+          AppToast.success(context, 'Produto cadastrado!');
+        }
+        Navigator.pop(context);
+        return;
       }
+      await prov2.updateIngredient(ing);
       if (!mounted) return;
+      AppToast.success(context, 'Produto atualizado!');
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(widget.editing == null
-                ? 'Insumo cadastrado!'
-                : 'Insumo atualizado!'),
-            backgroundColor: _colorGreenPrimary),
-      );
     } catch (e) {
       if (!mounted) return;
       _toast('Erro ao salvar: $e');
@@ -124,22 +170,133 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
     }
   }
 
+  String _formatQuantity(double value) {
+    return value
+        .toStringAsFixed(value % 1 == 0 ? 0 : 2)
+        .replaceAll('.', ',');
+  }
+
+  void _setUnit(IngredientUnit next) {
+    if (next == _unit) return;
+    if (_pendingOffers.isEmpty) {
+      setState(() => _unit = next);
+      return;
+    }
+    final previousLabel = _unit.label;
+    final converted = <IngredientOffer>[];
+    for (final offer in _pendingOffers) {
+      final result = UnitConverter.convertToIngredientUnit(
+          offer.packageQuantity, previousLabel, next.label);
+      if (!result.converted && previousLabel != next.label) {
+        AppToast.error(
+            context,
+            'Remova as ofertas pendentes antes de trocar para ${next.label}.');
+        return;
+      }
+      converted.add(offer.copyWith(packageQuantity: result.value));
+    }
+    setState(() {
+      _unit = next;
+      _pendingOffers
+        ..clear()
+        ..addAll(converted);
+    });
+  }
+
+  void _openOfferForm() {
+    if (!canAddPendingOffer(_pendingOffers.length)) {
+      AppToast.error(context,
+          'Limite de $maxOffersPerIngredient ofertas por produto atingido.');
+      return;
+    }
+    setState(() {
+      _showOfferForm = true;
+      _offerSupplierError = null;
+      _offerPriceError = null;
+      _offerQtyError = null;
+    });
+  }
+
+  void _clearOfferForm() {
+    _offerSupplierController.clear();
+    _offerProductNameController.clear();
+    _offerPriceController.clear();
+    _offerQtyController.clear();
+  }
+
+  void _cancelOfferForm() {
+    setState(() {
+      _showOfferForm = false;
+      _offerSupplierError = null;
+      _offerPriceError = null;
+      _offerQtyError = null;
+    });
+    _clearOfferForm();
+  }
+
+  void _addPendingOffer() {
+    if (!canAddPendingOffer(_pendingOffers.length)) {
+      AppToast.error(context,
+          'Limite de $maxOffersPerIngredient ofertas por produto atingido.');
+      return;
+    }
+
+    final validation = buildPendingOffer(
+      supplier: _offerSupplierController.text,
+      productName: _offerProductNameController.text,
+      priceInput: _offerPriceController.text,
+      quantityInput: _offerQtyController.text,
+    );
+
+    setState(() {
+      _offerSupplierError = validation.supplierError;
+      _offerPriceError = validation.priceError;
+      _offerQtyError = validation.quantityError;
+    });
+
+    if (!validation.isValid) {
+      AppToast.error(
+          context, validation.firstError ?? 'Revise os dados da oferta.');
+      return;
+    }
+
+    final offer = validation.offer!;
+    if (pendingOffersHasSupplier(_pendingOffers, offer.supplier)) {
+      setState(() =>
+          _offerSupplierError = 'Você já adicionou esse fornecedor.');
+      AppToast.error(
+          context, 'Já existe uma oferta pendente desse fornecedor.');
+      return;
+    }
+
+    setState(() {
+      _pendingOffers.add(offer);
+      _showOfferForm = false;
+      _offerSupplierError = null;
+      _offerPriceError = null;
+      _offerQtyError = null;
+    });
+    _clearOfferForm();
+    AppToast.success(
+        context, 'Oferta adicionada. Ela será salva junto com o produto.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.editing != null;
     return Scaffold(
-      backgroundColor: _colorBackground,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          isEdit ? 'Editar Insumo' : 'Novo Insumo',
+          isEdit ? 'Editar Produto' : 'Novo Produto',
           style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.bold),
+              color: AppColors.textPrimary, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -149,15 +306,19 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-                'Cadastre um material que você compra. O app calcula o preço por unidade automaticamente.',
-                style: TextStyle(color: Colors.grey, fontSize: 13)),
+                'Cadastre um produto que você compra e que entra nas fichas técnicas. O app calcula o preço por unidade automaticamente.',
+                style: TextStyle(
+                    color: AppColors.textSec,
+                    fontSize: AppTypography.body)),
             const SizedBox(height: 20),
-            _field(_nameController, 'Nome do insumo', Icons.science_outlined),
+            _field(_nameController, 'Nome do produto', Icons.inventory_2_outlined,
+                errorText: _nameError),
             const SizedBox(height: 16),
             _field(_priceController, 'Preço de compra (R\$)',
                 Icons.attach_money,
                 keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true)),
+                    const TextInputType.numberWithOptions(decimal: true),
+                errorText: _priceError),
             const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,7 +328,8 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                     child: _field(_qtyController, 'Qtd. da embalagem',
                         Icons.scale_outlined,
                         keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true))),
+                            const TextInputType.numberWithOptions(decimal: true),
+                        errorText: _qtyError)),
                 const SizedBox(width: 12),
                 Expanded(
                   flex: 2,
@@ -180,11 +342,15 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
             const SizedBox(height: 24),
             _buildDefaultSupplierSection(context),
             const SizedBox(height: 24),
-            _buildOffersSection(context),
+            isEdit
+                ? _buildOffersSection(context)
+                : _buildPendingOffersSection(),
             const SizedBox(height: 16),
             const Text(
               'Você escolhe qual oferta entra no ticket. O app não troca sozinho.',
-              style: TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.secondary),
             ),
           ],
         ),
@@ -194,26 +360,18 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
   }
 
   Widget _field(TextEditingController c, String label, IconData icon,
-      {TextInputType keyboardType = TextInputType.text}) {
-    return TextField(
+      {TextInputType keyboardType = TextInputType.text,
+      String? errorText,
+      String? helperText,
+      int? maxLength}) {
+    return AppTextField(
       controller: c,
+      label: label,
+      icon: icon,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
-        prefixIcon: Icon(icon, color: _colorGold, size: 20),
-        filled: true,
-        fillColor: _colorCard,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _colorGold, width: 1.5),
-        ),
-      ),
+      errorText: errorText,
+      helperText: helperText,
+      maxLength: maxLength,
     );
   }
 
@@ -221,26 +379,29 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-          color: _colorCard, borderRadius: BorderRadius.circular(12)),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(AppRadius.md)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<IngredientUnit>(
           value: _unit,
-          dropdownColor: _colorCard,
+          dropdownColor: AppColors.card,
           isExpanded: true,
-          icon: const Icon(Icons.arrow_drop_down, color: _colorGold),
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          icon: const Icon(Icons.arrow_drop_down, color: AppColors.gold),
+          style: const TextStyle(
+              color: AppColors.textPrimary, fontSize: AppTypography.body),
           items: IngredientUnit.values
               .map((u) => DropdownMenuItem(
                   value: u,
                   child: Row(
                     children: [
-                      const Icon(Icons.straighten, color: _colorGold, size: 18),
+                      const Icon(Icons.straighten,
+                          color: AppColors.gold, size: 18),
                       const SizedBox(width: 8),
                       Text(u.label),
                     ],
                   )))
               .toList(),
-          onChanged: (v) => setState(() => _unit = v ?? _unit),
+          onChanged: (v) => _setUnit(v ?? _unit),
         ),
       ),
     );
@@ -253,35 +414,47 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
         double.tryParse(_qtyController.text.trim().replaceAll(',', '.')) ?? 0;
     final perUnit = qty > 0 ? price / qty : 0.0;
     final active = widget.editing?.activeOffer;
+    final pending = widget.editing == null && _pendingOffers.isNotEmpty
+        ? _pendingOffers.first
+        : null;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: _colorGreenPrimary.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.greenPrimary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(AppRadius.md),
           border: Border.all(
-              color: _colorGreenPrimary.withValues(alpha: 0.3), width: 1)),
+              color: AppColors.greenPrimary.withValues(alpha: 0.3), width: 1)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Row(children: [
-            Icon(Icons.lightbulb_outline, color: _colorGold, size: 18),
+            Icon(Icons.lightbulb_outline, color: AppColors.gold, size: 18),
             SizedBox(width: 8),
             Text('Preço por unidade base',
                 style: TextStyle(
-                    color: _colorGold, fontWeight: FontWeight.bold)),
+                    color: AppColors.gold, fontWeight: FontWeight.bold)),
           ]),
           const SizedBox(height: 8),
-          Text(
-              '${formatCurrencyAbs(perUnit)} / ${_unit.label}',
-              style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
+          Text('${formatCurrencyAbs(perUnit)} / ${_unit.label}',
+              style: AppTypography.number(
+                  color: AppColors.textPrimary,
+                  fontSize: AppTypography.title,
                   fontWeight: FontWeight.bold)),
           if (active != null) ...[
             const SizedBox(height: 8),
             Text(
               'Com oferta ativa, o ticket usa ${formatCurrencyAbs(active.pricePerUnit)}/${_unit.label} (${active.supplier}).',
-              style: const TextStyle(color: _colorGold, fontSize: 12),
+              style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: AppTypography.secondary),
+            ),
+          ] else if (pending != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Após salvar, o ticket usa ${formatCurrencyAbs(pending.pricePerUnit)}/${_unit.label} (${pending.supplier}).',
+              style: const TextStyle(
+                  color: AppColors.gold,
+                  fontSize: AppTypography.secondary),
             ),
           ],
         ],
@@ -295,6 +468,7 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
     final bool isNew = ing == null;
 
     if (active != null) {
+      final current = ing!;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -304,33 +478,35 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: _colorCard,
-                borderRadius: BorderRadius.circular(12)),
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(AppRadius.md)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('Ativa agora',
-                    style: TextStyle(color: _colorGold, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppColors.gold,
+                        fontSize: AppTypography.secondary)),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Expanded(
                       child: Text(active.supplier,
                           style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.bold,
-                              fontSize: 16)),
+                              fontSize: AppTypography.section)),
                     ),
                     const ActiveOfferMarker(),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '${formatCurrencyAbs(active.packagePrice)} · ${active.packageQuantity.toStringAsFixed(active.packageQuantity % 1 == 0 ? 0 : 2)} ${ing!.unit.label} · ${formatCurrencyAbs(active.pricePerUnit)}/${ing.unit.label}',
+                  '${formatCurrencyAbs(active.packagePrice)} · ${active.packageQuantity.toStringAsFixed(active.packageQuantity % 1 == 0 ? 0 : 2)} ${current.unit.label} · ${formatCurrencyAbs(active.pricePerUnit)}/${current.unit.label}',
                   style: const TextStyle(
-                      color: _colorGold,
+                      color: AppColors.gold,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14),
+                      fontSize: AppTypography.body),
                 ),
                 const SizedBox(height: 12),
                 Row(
@@ -340,12 +516,12 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                         context,
                         '/offer-form',
                         arguments: {
-                          'ingredientId': ing.id,
+                          'ingredientId': current.id,
                           'offer': active,
                         },
                       ),
                       style: TextButton.styleFrom(
-                          foregroundColor: _colorGold,
+                          foregroundColor: AppColors.gold,
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 36),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -356,14 +532,14 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                       onPressed: () => Navigator.pushNamed(
                         context,
                         '/ingredient-offers',
-                        arguments: ing.id,
+                        arguments: current.id,
                       ),
                       style: TextButton.styleFrom(
-                          foregroundColor: _colorGold,
+                          foregroundColor: AppColors.gold,
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(0, 36),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                      child: Text('Ver todas (${ing.offersCount})'),
+                      child: Text('Ver todas (${current.offersCount})'),
                     ),
                   ],
                 ),
@@ -381,29 +557,53 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
           const SectionHeader(
               icon: Icons.storefront_outlined, title: 'Fornecedor padrão'),
           const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                    color: Colors.orange.withValues(alpha: 0.4), width: 1)),
-            child: const Row(
-              children: [
-                Icon(Icons.warning_amber, color: Colors.orange, size: 18),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'Nenhuma oferta ativa. O ticket usa o preço base deste insumo.',
-                    style: TextStyle(color: Colors.orange, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
+          const AlertBanner(
+            message:
+                'Nenhuma oferta ativa. O ticket usa o preço base deste produto.',
+            icon: Icons.warning_amber,
           ),
         ],
       );
     }
+
+    final content = Column(
+      children: [
+        const Icon(Icons.storefront_outlined,
+            color: AppColors.textSec, size: 28),
+        const SizedBox(height: 8),
+        Text(
+          isNew
+              ? 'A primeira oferta adicionada abaixo será o fornecedor padrão do produto.'
+              : 'Nenhuma oferta cadastrada.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              color: AppColors.textSec, fontSize: AppTypography.secondary),
+        ),
+        if (isNew) ...[
+          const SizedBox(height: 12),
+          _registerSupplierHint(),
+        ],
+        if (ing != null) ...[
+          const SizedBox(height: 12),
+          OutlinedButton(
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/offer-form',
+              arguments: {'ingredientId': ing.id},
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.greenPrimary,
+              side: const BorderSide(color: AppColors.greenPrimary),
+              disabledForegroundColor:
+                  AppColors.textPrimary.withValues(alpha: 0.38),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md)),
+            ),
+            child: const Text('Adicionar primeira oferta'),
+          ),
+        ],
+      ],
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -411,46 +611,282 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
         const SectionHeader(
             icon: Icons.storefront_outlined, title: 'Fornecedor padrão'),
         const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-              color: _colorCard,
-              borderRadius: BorderRadius.circular(12)),
-          child: Column(
-            children: [
-              const Icon(Icons.storefront_outlined,
-                  color: _colorTextSec, size: 28),
-              const SizedBox(height: 8),
-              Text(
-                isNew
-                    ? 'Salve o insumo antes de adicionar ofertas.'
-                    : 'Nenhuma oferta cadastrada.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: _colorTextSec, fontSize: 12),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: isNew
-                    ? null
-                    : () => Navigator.pushNamed(
-                          context,
-                          '/offer-form',
-                          arguments: {'ingredientId': ing.id},
-                        ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _colorGreenPrimary,
-                  side: const BorderSide(color: _colorGreenPrimary),
-                  disabledForegroundColor: Colors.white38,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+        if (isNew)
+          Material(
+            color: AppColors.card,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            child: InkWell(
+              onTap: _openOfferForm,
+              splashColor: AppColors.gold.withValues(alpha: 0.08),
+              highlightColor: AppColors.gold.withValues(alpha: 0.04),
+              child: SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: content,
                 ),
-                child: const Text('Adicionar primeira oferta'),
+              ),
+            ),
+          )
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(AppRadius.md)),
+            child: content,
+          ),
+      ],
+    );
+  }
+
+  Widget _registerSupplierHint() {
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.add_circle_outline, color: AppColors.gold, size: 18),
+        SizedBox(width: 6),
+        Text(
+          'Cadastrar fornecedor',
+          style: TextStyle(
+              color: AppColors.gold,
+              fontSize: AppTypography.secondary,
+              fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPendingOffersSection() {
+    final atLimit = !canAddPendingOffer(_pendingOffers.length);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          icon: Icons.storefront_outlined,
+          title: 'Ofertas',
+          trailing: Text(
+            '${_pendingOffers.length}/$maxOffersPerIngredient',
+            style: const TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (_pendingOffers.isEmpty && !_showOfferForm) ...[
+          Material(
+            color: AppColors.card,
+            clipBehavior: Clip.antiAlias,
+            borderRadius: BorderRadius.circular(AppRadius.lg),
+            child: InkWell(
+              onTap: _openOfferForm,
+              splashColor: AppColors.gold.withValues(alpha: 0.08),
+              highlightColor: AppColors.gold.withValues(alpha: 0.04),
+              child: SizedBox(
+                width: double.infinity,
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.storefront_outlined,
+                          color: AppColors.textSec, size: 28),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Nenhum fornecedor adicionado ainda.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppColors.textSec,
+                            fontSize: AppTypography.secondary),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Você pode cadastrar as ofertas agora: elas serão salvas junto com o produto.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                            color: AppColors.textSec,
+                            fontSize: AppTypography.secondary),
+                      ),
+                      const SizedBox(height: 12),
+                      _registerSupplierHint(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ] else if (_pendingOffers.isNotEmpty) ...[
+          for (var i = 0; i < _pendingOffers.length; i++)
+            _pendingOfferCard(i),
+          const SizedBox(height: 4),
+          const Text(
+            'A primeira oferta adicionada fica como ativa; as demais entram na comparação de preços.',
+            style: TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
+          ),
+        ],
+        if (_showOfferForm) ...[
+          const SizedBox(height: 12),
+          _buildPendingOfferForm(),
+        ],
+        if (atLimit) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Limite de $maxOffersPerIngredient ofertas por produto atingido.',
+            style: const TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _pendingOfferCard(int index) {
+    final offer = _pendingOffers[index];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(12, 12, 4, 12),
+      decoration: BoxDecoration(
+          color: AppColors.card, borderRadius: BorderRadius.circular(AppRadius.sm)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(offer.supplier,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
+                if (offer.hasProductName) ...[
+                  const SizedBox(height: 2),
+                  Text(offer.productName,
+                      style: const TextStyle(
+                          color: AppColors.textSec,
+                          fontSize: AppTypography.secondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  '${formatCurrencyAbs(offer.pricePerUnit)}/${_unit.label}',
+                  style: AppTypography.number(
+                      color: AppColors.gold,
+                      fontWeight: FontWeight.bold,
+                      fontSize: AppTypography.body),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${formatCurrencyAbs(offer.packagePrice)} · ${_formatQuantity(offer.packageQuantity)} ${_unit.label}',
+                  style: const TextStyle(
+                      color: AppColors.textSec,
+                      fontSize: AppTypography.caption),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _pendingOffers.removeAt(index)),
+            icon: const Icon(Icons.delete_outline,
+                color: AppColors.danger, size: 20),
+            tooltip: 'Remover oferta',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingOfferForm() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Nova oferta · unidade: ${_unit.label}',
+              style: const TextStyle(
+                  color: AppColors.gold,
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppTypography.body)),
+          const SizedBox(height: 12),
+          _field(_offerSupplierController, 'Nome do fornecedor',
+              Icons.storefront_outlined,
+              errorText: _offerSupplierError,
+              helperText: 'Ex.: Distribuidora Central, Atacado do Zé'),
+          const SizedBox(height: 12),
+          _field(_offerProductNameController,
+              'Nome do produto (como o fornecedor anuncia)',
+              Icons.local_offer_outlined,
+              maxLength: 80,
+              helperText: 'Ex.: Farinha de trigo tipo 1 — 5kg'),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: _field(_offerPriceController,
+                    'Preço da embalagem (R\$)', Icons.attach_money,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    errorText: _offerPriceError),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 1,
+                child: _field(_offerQtyController, 'Qtd.', Icons.scale_outlined,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    errorText: _offerQtyError),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: _cancelOfferForm,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSec,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md)),
+                  ),
+                  child: const Text('Cancelar'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _addPendingOffer,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.greenPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadius.md)),
+                  ),
+                  child: const Text('Adicionar oferta',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -468,8 +904,10 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
           icon: Icons.storefront_outlined,
           title: 'Ofertas',
           trailing: Text(
-            '${ing.offersCount}/15',
-            style: const TextStyle(color: _colorTextSec, fontSize: 12),
+            '${ing.offersCount}/$maxOffersPerIngredient',
+            style: const TextStyle(
+                color: AppColors.textSec,
+                fontSize: AppTypography.secondary),
           ),
         ),
         const SizedBox(height: 12),
@@ -478,12 +916,14 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-                color: _colorCard,
-                borderRadius: BorderRadius.circular(12)),
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(AppRadius.md)),
             child: const Text(
               'Nenhuma oferta ainda.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: _colorTextSec, fontSize: 12),
+              style: TextStyle(
+                  color: AppColors.textSec,
+                  fontSize: AppTypography.secondary),
             ),
           )
         else
@@ -495,8 +935,8 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                    color: _colorCard,
-                    borderRadius: BorderRadius.circular(10)),
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(AppRadius.sm)),
                 child: Row(
                   children: [
                     Expanded(
@@ -505,17 +945,17 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                         children: [
                           Text(o.supplier,
                               style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.textPrimary,
                                   fontWeight: FontWeight.bold),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 4),
                           Text(
                             '${formatCurrencyAbs(o.pricePerUnit)}/${ing.unit.label}',
-                            style: const TextStyle(
-                                color: _colorGold,
+                            style: AppTypography.number(
+                                color: AppColors.gold,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13),
+                                fontSize: AppTypography.body),
                           ),
                         ],
                       ),
@@ -543,12 +983,12 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                 Text(
                   'Ver todas as ${ing.offersCount} ofertas',
                   style: const TextStyle(
-                      color: _colorGold,
-                      fontSize: 12,
+                      color: AppColors.gold,
+                      fontSize: AppTypography.secondary,
                       fontWeight: FontWeight.bold),
                 ),
                 const Icon(Icons.arrow_forward,
-                    color: _colorGold, size: 14),
+                    color: AppColors.gold, size: 14),
               ],
             ),
           ),
@@ -564,11 +1004,12 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
         child: ElevatedButton(
           onPressed: _saving ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: _colorGreenPrimary,
-            disabledBackgroundColor: _colorGreenPrimary.withValues(alpha: 0.5),
+            backgroundColor: AppColors.greenPrimary,
+            disabledBackgroundColor:
+                AppColors.greenPrimary.withValues(alpha: 0.5),
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(AppRadius.md)),
             elevation: 0,
           ),
           child: _saving
@@ -578,7 +1019,7 @@ class _IngredientFormScreenState extends State<IngredientFormScreen> {
                   child: CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2))
               : Text(
-                  isEdit ? 'Salvar Alterações' : 'Cadastrar Insumo',
+                  isEdit ? 'Salvar Alterações' : 'Cadastrar Produto',
                   style: const TextStyle(
                       color: Colors.white, fontWeight: FontWeight.bold),
                 ),
